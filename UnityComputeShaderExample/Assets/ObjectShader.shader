@@ -22,37 +22,67 @@
 
 			StructuredBuffer<float4> _pos_buffer_soa;
 
-			struct appdata
+			struct vIn
 			{
-				float4 vertex : POSITION;
-				float2 uv : TEXCOORD0;
+				uint index : SV_VERTEXID;
 			};
 
-			struct v2f
+			struct v2g
 			{
-				float2 uv : TEXCOORD0;
-				UNITY_FOG_COORDS(1)
-				float4 vertex : SV_POSITION;
+				float4 position : POSITION;
+			};
+
+			struct g2f
+			{				
+				float4 position : SV_POSITION;
 			};
 
 			sampler2D _MainTex;
 			float4 _MainTex_ST;
 			
-			v2f vert (appdata v)
+			v2g vert (vIn v)
 			{
-				v2f o;
-				o.vertex = UnityObjectToClipPos(v.vertex);
-				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
-				UNITY_TRANSFER_FOG(o,o.vertex);
+				v2g o;
+				o.position = _pos_buffer_soa[v.index];
+				o.position = float4(v.index,0,0,1);
 				return o;
 			}
+
+			static const float3 g_positions[4] =
+			{
+				float3(-1, 1, 0),
+				float3(1, 1, 0),
+				float3(-1,-1, 0),
+				float3(1,-1, 0),
+			};
+
+			[maxvertexcount(4)]
+			void geom(point v2g v[1], inout TriangleStream<g2f> out_stream)
+			{
+				g2f ret = (g2f)0;
+
+				[unroll]
+				for (int i = 0; i < 4; ++i)
+				{
+					ret = (g2f)0;
+
+					float3 pos = g_positions[i];
+					//TODO revert to world space;
+					float3 pos_ws = pos;
+
+					//get new position
+					float3 new_pos = pos_ws + v[0].position;
+
+					ret.position = UnityObjectToClipPos(float4(new_pos, 1.0));
+					out_stream.Append(ret);
+				}
+				out_stream.RestartStrip();
+			}
 			
-			fixed4 frag (v2f i) : SV_Target
+			fixed4 frag (g2f i) : SV_Target
 			{
 				// sample the texture
-				fixed4 col = tex2D(_MainTex, i.uv);
-				// apply fog
-				UNITY_APPLY_FOG(i.fogCoord, col);
+				fixed4 col = i.position;
 				return col;
 			}
 			ENDCG

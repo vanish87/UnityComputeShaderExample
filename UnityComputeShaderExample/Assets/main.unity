@@ -141,6 +141,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cs: {fileID: 7200000, guid: f0027fc13d8b1ab44a1b0ac39b308282, type: 3}
+  rs: {fileID: 4800000, guid: 54c8971db9d34cc47ac3c5269f6f6ae6, type: 3}
+  result_: {fileID: 0}
+  SOA_Position: []
 --- !u!4 &316459773
 Transform:
   m_ObjectHideFlags: 0

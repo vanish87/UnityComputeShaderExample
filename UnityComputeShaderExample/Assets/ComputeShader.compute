@@ -2,6 +2,8 @@
 #pragma kernel CSMain
 #pragma kernel CSMain_SOA
 
+#pragma kernel Particle
+
 struct BufferStruct
 {
 	float4 pos;
@@ -48,4 +50,18 @@ void CSMain_SOA(uint3 id : SV_DispatchThreadID)
 	Result[id.xy] = pos + velocity;// = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
 	_pos_buffer_soa[id.x] = pos + velocity;
 	_velocity_buffer_soa[id.x] = pos + velocity;
+}
+
+[numthreads(8, 8, 1)]
+void Particle(uint3 id : SV_DispatchThreadID)
+{
+	float4 pos = _buffer[id.x].pos;
+	float4 velocity = _buffer[id.x].velocity;
+	
+	//do velocity calculation here
+
+
+	_buffer[id.x].pos = pos;
+	_buffer[id.x].velocity = velocity;
+
 }
