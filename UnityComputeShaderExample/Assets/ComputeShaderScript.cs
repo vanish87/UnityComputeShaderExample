@@ -8,8 +8,7 @@ using UnityEngine.Profiling;
 
 public class ComputeShaderScript : MonoBehaviour {
 
-    static int number_of_buffer_ = 10000;
-
+    static int number_of_buffer_ = 1;
 
     [SerializeField] private ComputeShader cs;
     [SerializeField] private Shader rs;
@@ -35,12 +34,25 @@ public class ComputeShaderScript : MonoBehaviour {
         { new SOA_Buffer("_buffer_mass"     , Marshal.SizeOf(typeof(float)))  , null },
     };    
 
-    Dictionary<string, int> cs_kernal_name_index_map_ = new Dictionary<string, int>()
+    struct CS_Attribute
+    {
+        public int kernal_id;
+        public bool use_soa;
+
+        public CS_Attribute(int id, bool soa)
+        {
+            kernal_id = id;
+            use_soa = soa;
+        }
+    };
+
+    Dictionary<string, CS_Attribute> cs_kernal_name_index_map_ = new Dictionary<string, CS_Attribute>()
     {
             //{ "SVD3D", -1},
             //{ "Grid", -1},
-            { "Particle", -1},
-            { "Particle_SOA", -1},
+            //{ "Particle", -1},
+            { "Particle_NONE", new CS_Attribute(-1, false) },
+            //{ "Particle_SOA", -1},
     };
 
     Material mat_;
@@ -64,7 +76,7 @@ public class ComputeShaderScript : MonoBehaviour {
 
         foreach(var k in cs_kernal_name_index_map_.Keys.ToList())
         {
-            cs_kernal_name_index_map_[k] = cs.FindKernel(k);
+            cs_kernal_name_index_map_[k]= new CS_Attribute(cs.FindKernel(k), cs_kernal_name_index_map_[k].use_soa);
         }
 
         var pData = new ParticleStruct[number_of_buffer_];
@@ -87,23 +99,23 @@ public class ComputeShaderScript : MonoBehaviour {
         {
             foreach (var k in cs_kernal_name_index_map_)
             {
-                if (k.Key == "Particle")
+                if (k.Value.use_soa == false)
                 {
-                    cs.SetBuffer(k.Value, "_buffer", buffer_);
+                    cs.SetBuffer(k.Value.kernal_id, "_buffer", buffer_);
 
                     Profiler.BeginSample(k.Key);
-                    cs.Dispatch(k.Value, 512 / 8, 512 / 8, 1);
+                    cs.Dispatch(k.Value.kernal_id, 512 / 8, 512 / 8, 1);
                     Profiler.EndSample();
                 }
                 else
                 {
                     foreach (var buffer in cs_buffer_soa_)
                     {
-                        cs.SetBuffer(k.Value, buffer.Key.name, buffer.Value);
+                        cs.SetBuffer(k.Value.kernal_id, buffer.Key.name, buffer.Value);
                     }
 
                     Profiler.BeginSample(k.Key);
-                    cs.Dispatch(k.Value, 512 / 8, 512 / 8, 1);
+                    cs.Dispatch(k.Value.kernal_id, 512 / 8, 512 / 8, 1);
                     Profiler.EndSample();
                 }
             }
@@ -117,6 +129,7 @@ public class ComputeShaderScript : MonoBehaviour {
         Assert.IsNotNull(mat_);
         mat_.SetPass(0);
         mat_.SetBuffer("_buffer", buffer_);
+        mat_.SetMatrix("_inv_view_mat", Camera.main.worldToCameraMatrix.inverse);
 
         Graphics.DrawProcedural(MeshTopology.Points, number_of_buffer_);
     }

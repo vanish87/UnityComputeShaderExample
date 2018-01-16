@@ -1,5 +1,6 @@
 ﻿// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel Particle
+#pragma kernel Particle_NONE
 #pragma kernel Particle_SOA
 
 #include "Assets/Common.cginc"
@@ -9,6 +10,13 @@
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
 RWStructuredBuffer<ParticleStruct> _buffer;
+
+
+[numthreads(8, 8, 1)]
+void Particle_NONE(uint3 id : SV_DispatchThreadID)
+{
+
+}
 
 [numthreads(8, 8, 1)]
 void Particle(uint3 id : SV_DispatchThreadID)
@@ -32,7 +40,8 @@ void Particle(uint3 id : SV_DispatchThreadID)
 	pos.y = A[0][1];
 	velocity.x = A[1][0];
 	velocity.y = A[1][1];
-
+	 
+	pos.x = id;
 	_buffer[id.x].position = pos;
 	_buffer[id.x].velocity = velocity;
 	_buffer[id.x].mass = mass;
