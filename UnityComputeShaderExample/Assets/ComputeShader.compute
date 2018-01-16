@@ -1,67 +1,72 @@
 ﻿// Each #kernel tells which function to compile; you can have many kernels
-#pragma kernel CSMain
-#pragma kernel CSMain_SOA
-
 #pragma kernel Particle
+#pragma kernel Particle_SOA
 
-struct BufferStruct
-{
-	float4 pos;
-	float4 velocity;
-};
+#include "Assets/Common.cginc"
+#include "Assets/Math.cginc"
+
 
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
-RWTexture2D<float4> Result;
-RWStructuredBuffer<BufferStruct> _buffer;
-RWStructuredBuffer<float4> _pos_buffer_soa;
-RWStructuredBuffer<float4> _velocity_buffer_soa;
-
-
-[numthreads(8, 8, 1)]
-void CSMain(uint3 id : SV_DispatchThreadID)
-{
-	// TODO: insert actual code here!
-	float4 pos = _buffer[id.x].pos;
-	float4 velocity = _buffer[id.x].velocity;
-
-	for (int i = 0; i < 10000; ++i)
-	{
-		pos += 0.00000001 * sin(i) * cos(i);
-	}
-	pos = float4(1, 0, 0, 1);
-	Result[id.xy] = pos + velocity;// = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
-	_buffer[id.x].pos = pos + velocity;
-	_buffer[id.x].velocity = pos + velocity;
-}
-
-[numthreads(8, 8, 1)]
-void CSMain_SOA(uint3 id : SV_DispatchThreadID)
-{
-	// TODO: insert actual code here!
-	float4 pos = _pos_buffer_soa[id.x];
-	float4 velocity = _velocity_buffer_soa[id.x];
-
-	for (int i = 0; i < 10000; ++i)
-	{
-		pos += 0.00000001 * sin(i) * cos(i);
-	}
-	pos = float4(1, 0, 0, 1);
-	Result[id.xy] = pos + velocity;// = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
-	_pos_buffer_soa[id.x] = pos + velocity;
-	_velocity_buffer_soa[id.x] = pos + velocity;
-}
+RWStructuredBuffer<ParticleStruct> _buffer;
 
 [numthreads(8, 8, 1)]
 void Particle(uint3 id : SV_DispatchThreadID)
 {
-	float4 pos = _buffer[id.x].pos;
-	float4 velocity = _buffer[id.x].velocity;
+	float3 pos = _buffer[id.x].position;
+	float3 velocity = _buffer[id.x].velocity;
+	float  mass = _buffer[id.x].mass;
 	
 	//do velocity calculation here
+	float2  D;
+	float2x2 A, U, Vt;
+	A[0][0] = pos.x;
+	A[0][1] = pos.y;
+	A[1][0] = pos.z;
+	A[1][1] = mass;
+	GetSVD2D(A, U, D, Vt);
 
+	A = U * Vt;
 
-	_buffer[id.x].pos = pos;
+	pos.x = A[0][0];
+	pos.y = A[0][1];
+	velocity.x = A[1][0];
+	velocity.y = A[1][1];
+
+	_buffer[id.x].position = pos;
 	_buffer[id.x].velocity = velocity;
+	_buffer[id.x].mass = mass;
+
+}
+
+RWStructuredBuffer<float3> _buffer_pos;
+RWStructuredBuffer<float3> _buffer_velocity;
+RWStructuredBuffer<float>  _buffer_mass;
+[numthreads(8, 8, 1)]
+void Particle_SOA(uint3 id : SV_DispatchThreadID)
+{
+	float3 pos = _buffer_pos[id.x];
+	float3 velocity = _buffer_velocity[id.x];
+	float  mass = _buffer_mass[id.x];
+
+	//do velocity calculation here
+	float2  D;
+	float2x2 A, U, Vt;
+	A[0][0] = pos.x;
+	A[0][1] = pos.y;
+	A[1][0] = pos.z;
+	A[1][1] = mass;
+	GetSVD2D(A, U, D, Vt);
+
+	A = U * Vt;
+
+	pos.x = A[0][0];
+	pos.y = A[0][1];
+	velocity.x = A[1][0];
+	velocity.y = A[1][1];
+
+	_buffer_pos[id.x]		= pos;
+	_buffer_velocity[id.x]	= velocity;
+	_buffer_mass[id.x]		= mass;
 
 }

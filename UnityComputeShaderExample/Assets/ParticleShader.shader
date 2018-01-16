@@ -1,4 +1,4 @@
-﻿Shader "Unlit/NewUnlitShader"
+﻿Shader "Render/ParticleShader"
 {
 	Properties
 	{
@@ -19,8 +19,9 @@
 			#pragma multi_compile_fog
 
 			#include "UnityCG.cginc"
+			#include "Assets/Common.cginc"
 
-			StructuredBuffer<float4> _pos_buffer_soa;
+			StructuredBuffer<ParticleStruct> _buffer;
 
 			struct vIn
 			{
@@ -43,8 +44,8 @@
 			v2g vert (vIn v)
 			{
 				v2g o;
-				o.position = _pos_buffer_soa[v.index];
-				o.position = float4(v.index,0,0,1);
+				o.position = float4(_buffer[v.index].position, 1.0);
+				//o.position = float4(v.index,0,0,1);
 				return o;
 			}
 
