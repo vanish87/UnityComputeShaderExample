@@ -8,6 +8,8 @@
 	{
 		Tags { "RenderType" = "Opaque" }
 		LOD 100
+		//to make intensity in frag shader working
+		Blend SrcAlpha OneMinusSrcAlpha
 
 		Pass
 		{
@@ -97,8 +99,10 @@
 			{
 				// sample the texture
 				fixed4 col = i.position;
-				col = 0.5;
-				return col;
+				col = 1;
+				float intensity = 0.5f - length(float2(0.5f, 0.5f) - i.uv);
+				intensity = clamp(intensity, 0.0f, 0.5f) * 2.0f;
+				return fixed4(col.xyz, intensity);
 			}
 			ENDCG
 		}

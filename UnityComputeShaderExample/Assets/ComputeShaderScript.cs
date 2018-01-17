@@ -34,10 +34,10 @@ public class ComputeShaderScript : MonoBehaviour {
         { new SOA_Buffer("_buffer_mass"     , Marshal.SizeOf(typeof(float)))  , null },
     };    
 
-    struct CS_Attribute
+    class CS_Attribute
     {
-        public int kernal_id;
-        public bool use_soa;
+        public int kernal_id { get; set; }
+        public bool use_soa  { get; set; }
 
         public CS_Attribute(int id, bool soa)
         {
@@ -74,9 +74,9 @@ public class ComputeShaderScript : MonoBehaviour {
             cs_buffer_soa_[buffer] = new ComputeBuffer(number_of_buffer_, buffer.size);
         }
 
-        foreach(var k in cs_kernal_name_index_map_.Keys.ToList())
+        foreach(var k in cs_kernal_name_index_map_)
         {
-            cs_kernal_name_index_map_[k]= new CS_Attribute(cs.FindKernel(k), cs_kernal_name_index_map_[k].use_soa);
+            k.Value.kernal_id = cs.FindKernel(k.Key);
         }
 
         var pData = new ParticleStruct[number_of_buffer_];
