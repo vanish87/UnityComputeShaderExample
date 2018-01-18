@@ -177,13 +177,13 @@ float FrobeniusNorm(float3x3 input)
 	return ret;
 }
 
-void FlipSign(int index, inout float3x3 mat, inout float3 sigma)
+/*void FlipSign(int index, inout float3x3 mat, inout float3 sigma)
 {
 	mat[0][index] = -mat[0][index];
 	mat[1][index] = -mat[1][index];
 	mat[2][index] = -mat[2][index];
 	sigma[index]  = -sigma[index];
-}
+}*/
 
 void FlipSignColumn(inout float3x3 mat, int col)
 {
@@ -225,15 +225,17 @@ void SortWithTopLeftSub(float3x3 U, float3 sigma, float3x3 V)
 	{
 		if (sigma[1] < 0)
 		{
-			FlipSign(1, U, sigma);
-			FlipSign(2, U, sigma);
+			FlipSignColumn(U, 1); sigma[1] = -sigma[1];
+			FlipSignColumn(U, 2); sigma[2] = -sigma[2];
+			//FlipSign(1, U, sigma);
+			//FlipSign(2, U, sigma);
 		}
 		return;
 	}
 	if (sigma[2] < 0)
 	{
-		FlipSign(1, U, sigma);
-		FlipSign(2, U, sigma);
+		FlipSignColumn(U, 1); sigma[1] = -sigma[1];
+		FlipSignColumn(U, 2); sigma[2] = -sigma[2];
 	}
 	Swap(sigma[1],sigma[2]);
 	SwapColumn(U, 1, U, 2);
@@ -258,8 +260,10 @@ void SortWithBotRightSub(float3x3 U, float3 sigma, float3x3 V)
 	{
 		if (sigma[0] < 0)
 		{
-			FlipSign(0, U, sigma);
-			FlipSign(2, U, sigma);
+			FlipSignColumn(U, 0); sigma[0] = -sigma[0];
+			FlipSignColumn(U, 2); sigma[2] = -sigma[2];
+			//FlipSign(0, U, sigma);
+			//FlipSign(2, U, sigma);
 		}
 		return;
 	}
@@ -281,8 +285,10 @@ void SortWithBotRightSub(float3x3 U, float3 sigma, float3x3 V)
 
 	if (sigma[1] < 0)
 	{
-		FlipSign(1, U, sigma);
-		FlipSign(2, U, sigma);
+		FlipSignColumn(U, 1); sigma[1] = -sigma[1];
+		FlipSignColumn(U, 2); sigma[2] = -sigma[2];
+		//FlipSign(1, U, sigma);
+		//FlipSign(2, U, sigma);
 	}
 }
 
@@ -331,7 +337,7 @@ void SolveReducedBotRight(float3x3 B, float3x3 U, float3 sigma, float3x3 V)
 	sigma = float3(s1, D2);
 }
 
-void PostProcess(float3x3 B, inout float3x3 U, inout float3x3 V, float3 alpha, float2 beta, inout float3 sigma, float tao)
+void PostProcess(float3x3 B, inout float3x3 U, inout float3x3 V, float3 alpha, float2 beta, out float3 sigma, float tao)
 {
 	if (abs(beta[1]) <= tao)
 	{
@@ -368,12 +374,11 @@ void PostProcess(float3x3 B, inout float3x3 U, inout float3x3 V, float3 alpha, f
 }
 
 
-void GetSVD3D(in float3x3 A, out float3x3 U, out float3 D, out float3x3 V)
+void GetSVD3D(float3x3 A, out float3x3 U, out float3 D, out float3x3 V)
 {
 	float3x3 B = A;
 	U = Identity3x3;
 	V = Identity3x3;
-	D = float3(0, 0, 0);
 
 	Bidiagonalize(U, B, V);
 

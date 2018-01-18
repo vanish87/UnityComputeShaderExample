@@ -25,6 +25,7 @@
 
 			StructuredBuffer<ParticleStruct> _buffer;
 			float4x4 _inv_view_mat;
+			float _particle_size;
 
 			struct vIn
 			{
@@ -80,7 +81,7 @@
 				{
 					ret = (g2f)0;
 
-					float3 pos = g_positions[i];
+					float3 pos = g_positions[i] * _particle_size;
 					//TODO revert to world space;
 					float3 pos_ws = mul(_inv_view_mat, pos);
 

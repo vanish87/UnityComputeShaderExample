@@ -41,7 +41,6 @@ void Particle(uint3 id : SV_DispatchThreadID)
 	velocity.x = A[1][0];
 	velocity.y = A[1][1];
 	 
-	pos.x = id;
 	_buffer[id.x].position = pos;
 	_buffer[id.x].velocity = velocity;
 	_buffer[id.x].mass = mass;

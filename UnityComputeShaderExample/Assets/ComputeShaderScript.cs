@@ -8,10 +8,12 @@ using UnityEngine.Profiling;
 
 public class ComputeShaderScript : MonoBehaviour {
 
-    static int number_of_buffer_ = 1;
+    static int number_of_buffer_ = 10000;
 
     [SerializeField] private ComputeShader cs;
     [SerializeField] private Shader rs;
+
+    [SerializeField] private float particle_size_ = 0.1f;
 
     ComputeBuffer buffer_;
 
@@ -50,9 +52,9 @@ public class ComputeShaderScript : MonoBehaviour {
     {
             //{ "SVD3D", -1},
             //{ "Grid", -1},
-            //{ "Particle", -1},
-            { "Particle_NONE", new CS_Attribute(-1, false) },
-            //{ "Particle_SOA", -1},
+            { "Particle", new CS_Attribute(-1, false)},
+            //{ "Particle_NONE", new CS_Attribute(-1, false) },
+            { "Particle_SOA", new CS_Attribute(-1, true)},
     };
 
     Material mat_;
@@ -128,8 +130,9 @@ public class ComputeShaderScript : MonoBehaviour {
     {
         Assert.IsNotNull(mat_);
         mat_.SetPass(0);
-        mat_.SetBuffer("_buffer", buffer_);
+        mat_.SetBuffer("_buffer", this.buffer_);
         mat_.SetMatrix("_inv_view_mat", Camera.main.worldToCameraMatrix.inverse);
+        mat_.SetFloat("_particle_size", this.particle_size_);
 
         Graphics.DrawProcedural(MeshTopology.Points, number_of_buffer_);
     }

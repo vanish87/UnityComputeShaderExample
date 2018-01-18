@@ -7,4 +7,19 @@ struct ParticleStruct
 	float  mass;
 };
 
+float4x4 Identity =
+{
+	{ 1, 0, 0, 0 },
+	{ 0, 1, 0, 0 },
+	{ 0, 0, 1, 0 },
+	{ 0, 0, 0, 1 }
+}; 
+
+float3x3 Identity3x3 =
+{
+	{ 1, 0, 0},
+	{ 0, 1, 0},
+	{ 0, 0, 1},
+};
+
 #endif
