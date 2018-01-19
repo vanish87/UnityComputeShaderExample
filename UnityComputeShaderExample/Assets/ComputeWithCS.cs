@@ -45,6 +45,13 @@ public class ComputeWithCS : MonoBehaviour {
                 new Vector4(Random.Range(-10.0f, 10), Random.Range(-10.0f, 10), Random.Range(-10.0f, 10), 0), 
                 new Vector4(Random.Range(-10.0f, 10), Random.Range(-10.0f, 10), Random.Range(-10.0f, 10), 0),
                 new Vector4(0, 0, 0, 0));
+
+
+            this.input_data_[i].A = new Matrix4x4(
+                new Vector4(1,4,7, 0),
+                new Vector4(2,5,8, 0),
+                new Vector4(3,6,9, 0),
+                new Vector4(0, 0, 0, 0));
         }
 
         input_buffer_.SetData(this.input_data_);
@@ -81,21 +88,43 @@ public class ComputeWithCS : MonoBehaviour {
 
 	}
 
+    /*
+        R:
+        0.980581 -0.196116
+        0.196116 0.980581
+        S:
+        1.56893 2.74563
+        2.74563 3.53009
+        AToVerify:
+        1 2
+        3 4
+     */
+
     void VerifyData(Input[] input, Output[] output)
     {
         for (int i = 0; i < input.Length; ++i)
         {
             Matrix4x4 matirx_d = new Matrix4x4(
-                new Vector4( output[i].D[0], 0, 0, 0),
-                new Vector4(0, output[i].D[1] , 0, 0),
-                new Vector4(0, 0, output[i].D[2] , 0),
+                new Vector4(output[i].D[0], 0, 0, 0),
+                new Vector4(0, output[i].D[1], 0, 0),
+                new Vector4(0, 0, output[i].D[2], 0),
                 new Vector4(0, 0, 0, 0)
             );
 
             Debug.LogFormat("A is \n{0}", input[i].A);
             Debug.LogFormat("U is \n{0}", output[i].U);
-            Debug.LogFormat("D is {0}", output[i].D);
+            Debug.LogFormat("D is {0}", output[i].D.ToString("F4"));
             Debug.LogFormat("Vt is \n{0}", output[i].Vt);
+
+            /*output[i].Vt = new Matrix4x4(
+                new Vector4(1.56893f, 2.74563f, 0, 0),
+                new Vector4(2.74563f, 3.53009f, 0, 0),
+                new Vector4(0, 0, 0, 0),
+                new Vector4(0, 0, 0, 0)
+                );*/
+             
+ 
+            Debug.LogFormat("output is \n{0}", output[i].U * matirx_d * output[i].Vt);           
 
             //Assert.IsTrue(input[i].A == output[i].U * matirx_d * output[i].Vt);
         }

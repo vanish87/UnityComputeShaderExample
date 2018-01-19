@@ -9,30 +9,70 @@ float2x2 G2(float c, float s)
 	return float2x2(c, s, -s, c);
 }
 
-float3x3 G3_12(float c, float s)
+float2 GetGivensConventionalCS(float a, float b)
 {
-	return float3x3( c, s, 0 , 
-					-s, c, 0 , 
-					 0, 0, 1 );
+	float d = a * a + b * b;
+	float c = 1;
+	float s = 0;
+	if (abs(d) > EPSILON)
+	{
+		float t = rsqrt(d);
+		c = a * t;
+		s = -b * t;
+	}
+
+	return float2(c, s);
+}
+
+float2 GetGivensUnConventionalCS(float a, float b)
+{
+
+	float d = a * a + b * b;
+	float c = 1;
+	float s = 0;
+	if (abs(d) > EPSILON)
+	{
+		float t = rsqrt(d);
+		c = a * t;
+		s = b * t;
+	}
+
+	return float2(c, s);
+}
+
+float3x3 G3_12(float c, float s, bool use_conventional = true)
+{
+	float2 cs = use_conventional ? GetGivensConventionalCS(c, s) : GetGivensUnConventionalCS(c, s);
+	c = cs.x;
+	s = cs.y;
+	return float3x3(c, s, 0,
+		-s, c, 0,
+		0, 0, 1);
 }
 
 
-float3x3 G3_23(float c, float s)
+float3x3 G3_23(float c, float s, bool use_conventional = true)
 {
+	float2 cs = use_conventional ? GetGivensConventionalCS(c, s) : GetGivensUnConventionalCS(c, s);
+	c = cs.x;
+	s = cs.y;
 	return float3x3(1, 0, 0,
-					0, c, s,
-					0,-s, c);
+		0, c, s,
+		0, -s, c);
 }
 
 
-float3x3 G3_13(float c, float s)
+float3x3 G3_13(float c, float s, bool use_conventional = true)
 {
-	return float3x3( c, 0, s,
-					 0, 1, 0,
-					-s, 0, c);
+	float2 cs = use_conventional ? GetGivensConventionalCS(c, s) : GetGivensUnConventionalCS(c, s);
+	c = cs.x;
+	s = cs.y;
+	return float3x3(c, 0, s,
+		0, 1, 0,
+		-s, 0, c);
 }
 
-void GetPolarDecomposition2D(float2x2 A, out float2x2 R, out float2x2 S)
+void GetPolarDecomposition2D(in float2x2 A, out float2x2 R, out float2x2 S)
 {
 	float x = A[0][0] + A[1][1];
 	float y = A[1][0] - A[0][1];
@@ -44,14 +84,32 @@ void GetPolarDecomposition2D(float2x2 A, out float2x2 R, out float2x2 S)
 
 	R = G2(c, s);
 
-	float Zero = 0;
-	if (abs(d-Zero) > EPSILON)
+	if (abs(d) > EPSILON)
 	{
 		d = 1.0f / d;
 		R = G2(x * d, -y * d);
 	}
 
-	S = transpose(R) * A;
+	S = mul(transpose(R), A);
+
+	//note:
+	//
+	//S = mul(R, S);
+	//and
+	//S = R * S;
+	//is different
+
+	/*
+	R = float2x2(
+	0.980581, -0.196116,
+	0.196116, 0.980581);
+	S = float2x2(
+	1.56893, 2.74563,
+	2.74563, 3.53009);
+
+	*/
+
+
 	/*
 	PRINT_WARNING("Start GetPolarDecomposition2D");
 	PRINT_VAR(A);
@@ -70,7 +128,7 @@ void GetPolarDecomposition2D(float2x2 A, out float2x2 R, out float2x2 S)
 }
 
 
-void GetSVD2D(float2x2 A, out float2x2 U, out float2 D, out float2x2 V)
+void GetSVD2D(in float2x2 A, out float2x2 U, out float2 D, out float2x2 V)
 {
 	float2x2 R;
 	float2x2 S;
@@ -80,7 +138,7 @@ void GetSVD2D(float2x2 A, out float2x2 U, out float2 D, out float2x2 V)
 	float c = 1;
 	float s = 0;
 
-	if (abs(S[0][1]-0) > EPSILON)
+	if (abs(S[0][1]) < EPSILON)
 	{
 		D[0] = S[0][0];
 		D[1] = S[1][1];
@@ -112,7 +170,7 @@ void GetSVD2D(float2x2 A, out float2x2 U, out float2 D, out float2x2 V)
 		V = G2(c, s);
 	}
 
-	U = R*V;
+	U = mul(R, V);
 
 	//before this variable Vt stores V
 	//Vt = transpose(Vt);
@@ -142,23 +200,24 @@ void GetSVD2D(float2x2 A, out float2x2 U, out float2 D, out float2x2 V)
 void Zerochasing(inout float3x3 U, inout float3x3 A, inout float3x3 V)
 {
 	float3x3 G = G3_23(A[0][1], A[0][2]);
-	A = A * G;
-	U = transpose(G) * U;
+	A = mul(A, G);
+	U = mul(transpose(G), U);
 
 	G = G3_23(A[0][1], A[0][2]);
-	A = transpose(G) * A;
-	V = transpose(G) * V;
+	A = mul(transpose(G), A);
+	V = mul(transpose(G), V);
 
 	G = G3_23(A[1][1], A[2][1]);
-	A = transpose(G) * A;
-	U = U * G;
+	A = mul(transpose(G), A);
+	U = mul(U, G);
 }
 
 void Bidiagonalize(inout float3x3 U, inout float3x3 A, inout float3x3 V)
 {
-	float3x3 G = G3_23(A[1][0],A[2][1]);
-	A = transpose(G) * A;
-	U = U * G;
+	float3x3 G = G3_23(A[1][0], A[2][0]);
+	A = mul(transpose(G), A);
+	U = mul(U, G);
+	//checked
 
 	Zerochasing(U, A, V);
 }
@@ -174,7 +233,7 @@ float FrobeniusNorm(float3x3 input)
 		}
 	}
 
-	return ret;
+	return sqrt(ret);
 }
 
 void FlipSign(int index, inout float3x3 mat, inout float3 sigma)
@@ -182,7 +241,7 @@ void FlipSign(int index, inout float3x3 mat, inout float3 sigma)
 	mat[0][index] = -mat[0][index];
 	mat[1][index] = -mat[1][index];
 	mat[2][index] = -mat[2][index];
-	sigma[index]  = -sigma[index];
+	sigma[index] = -sigma[index];
 }
 
 void FlipSignColumn(inout float3x3 mat, int col)
@@ -219,7 +278,7 @@ inline void SwapColumn(inout float3x3 a, int col_a, inout float3x3 b, int col_b)
 	b[2][col_b] = temp[2];
 }
 
-void SortWithTopLeftSub(float3x3 U, float3 sigma, float3x3 V)
+void SortWithTopLeftSub(inout float3x3 U, inout float3 sigma, inout float3x3 V)
 {
 	if (abs(sigma[1]) >= abs(sigma[2]))
 	{
@@ -235,13 +294,13 @@ void SortWithTopLeftSub(float3x3 U, float3 sigma, float3x3 V)
 		FlipSign(1, U, sigma);
 		FlipSign(2, U, sigma);
 	}
-	Swap(sigma[1],sigma[2]);
+	Swap(sigma[1], sigma[2]);
 	SwapColumn(U, 1, U, 2);
 	SwapColumn(V, 1, V, 2);
 
 	if (sigma[1] > sigma[0])
 	{
-		Swap(sigma[0], sigma[1]);;
+		Swap(sigma[0], sigma[1]);
 		SwapColumn(U, 0, U, 1);
 		SwapColumn(V, 0, V, 1);
 	}
@@ -252,7 +311,7 @@ void SortWithTopLeftSub(float3x3 U, float3 sigma, float3x3 V)
 	}
 }
 
-void SortWithBotRightSub(float3x3 U, float3 sigma, float3x3 V)
+void SortWithBotRightSub(inout float3x3 U, inout float3 sigma, inout float3x3 V)
 {
 	if (abs(sigma[0]) >= abs(sigma[1]))
 	{
@@ -286,13 +345,13 @@ void SortWithBotRightSub(float3x3 U, float3 sigma, float3x3 V)
 	}
 }
 
-void SolveReducedTopLeft(float3x3 B, float3x3 U, float3 sigma, float3x3 V)
+void SolveReducedTopLeft(inout float3x3 B, inout float3x3 U, inout float3 sigma, inout float3x3 V)
 {
 	float s3 = B[2][2];
 	//float2x2 u = G2(1, 0);
 	//float2x2 v = G2(1, 0);
 
-	float2x2 top_left = float2x2(B[0][0],B[0][1],  B[1][0],B[1][1]);
+	float2x2 top_left = float2x2(B[0][0], B[0][1], B[1][0], B[1][1]);
 
 	float2x2 A2 = top_left;
 	float2x2 U2;
@@ -303,13 +362,14 @@ void SolveReducedTopLeft(float3x3 B, float3x3 U, float3 sigma, float3x3 V)
 	float3x3 u3 = G3_12(U2[0][0], U2[0][1]);
 	float3x3 v3 = G3_12(V2[0][0], V2[0][1]);
 
-	U = U * u3;
-	V = V * v3;
-	sigma = float3(D2,s3);
+	U = mul(U, u3);
+	V = mul(V, v3);
+	sigma = float3(D2, s3);
+
 }
 
 
-void SolveReducedBotRight(float3x3 B, float3x3 U, float3 sigma, float3x3 V)
+void SolveReducedBotRight(inout float3x3 B, inout float3x3 U, inout float3 sigma, inout float3x3 V)
 {
 	float s1 = B[0][0];
 	//float2x2 u = G2(1, 0);
@@ -326,8 +386,8 @@ void SolveReducedBotRight(float3x3 B, float3x3 U, float3 sigma, float3x3 V)
 	float3x3 u3 = G3_12(U2[0][0], U2[0][1]);
 	float3x3 v3 = G3_12(V2[0][0], V2[0][1]);
 
-	U = U * u3;
-	V = V * v3;
+	U = mul(U, u3);
+	V = mul(V, v3);
 	sigma = float3(s1, D2);
 }
 
@@ -343,27 +403,47 @@ void PostProcess(float3x3 B, inout float3x3 U, inout float3x3 V, float3 alpha, f
 		SolveReducedBotRight(B, U, sigma, V);
 		SortWithBotRightSub(U, sigma, V);
 	}
+	else if (abs(alpha[1]) <= tao)
+	{
+		//UnConventional G here
+		float3x3 G = G3_23(B[1][2], B[2][2], false);
+		B = mul(transpose(G), B);
+		U = mul(U, G);
+
+		SolveReducedTopLeft(B, U, sigma, V);
+		SortWithTopLeftSub(U, sigma, V);
+	}
 	else if (abs(alpha[2]) <= tao)
 	{
-		float3x3 G_ = G3_23(B[1][2], B[2][2]);
-		B = transpose(G_) * B;
-		U = U * G_;
+		float3x3 G = G3_23(B[1][1], B[1][2]);
+		B = mul(B, G);
+		V = mul(V, G);
 
+		G = G3_13(B[0][0], B[0][2]);
+		B = mul(B, G);
+		V = mul(V, G);
+		
 		SolveReducedTopLeft(B, U, sigma, V);
 		SortWithTopLeftSub(U, sigma, V);
 	}
 	else if (abs(alpha[0]) <= tao)
 	{
-		float3x3 G_ = G3_12(B[0][1], B[1][1]);
-		B = transpose(G_) * B;
-		U = U * G_;
+		//UnConventional G here
+		float3x3 G = G3_12(B[0][1], B[1][1], false);
+		B = mul(transpose(G), B);
+		U = mul(U, G);
 
-		G_ = G3_13(B[0][2], B[2][2]);
-		B = transpose(G_) * B;
-		U = U * G_;
+		//UnConventional G here
+		G = G3_13(B[0][2], B[2][2], false);
+		B = mul(transpose(G), B);
+		U = mul(U, G);
 
 		SolveReducedBotRight(B, U, sigma, V);
 		SortWithBotRightSub(U, sigma, V);
+	}
+	else
+	{
+		//sigma = float3(111, 222, 333);
 	}
 }
 
@@ -371,21 +451,23 @@ void PostProcess(float3x3 B, inout float3x3 U, inout float3x3 V, float3 alpha, f
 void GetSVD3D(in float3x3 A, out float3x3 U, out float3 D, out float3x3 V)
 {
 	float3x3 B = A;
-	U = Identity3x3;
-	V = Identity3x3;
+	U = Identity3x3;//this is not working
+	U[0][0] = U[1][1] = U[2][2] = 1;
+	V = Identity3x3;//this is not working
+	V[0][0] = V[1][1] = V[2][2] = 1;
 	D = float3(0, 0, 0);
 
 	Bidiagonalize(U, B, V);
 
 	float3 alpha = float3(B[0][0], B[1][1], B[2][2]);
-	float2 beta  = float2(B[0][1], B[1][2]);
+	float2 beta = float2(B[0][1], B[1][2]);
 	float2 gamma = float2(alpha[0] * beta[0], alpha[1] * beta[1]);
 
 	float tol = 128 * EPSILON;
 	float tao = tol * max(0.5 * FrobeniusNorm(B), 1.0);
 
 	while (abs(alpha[0]) > tao && abs(alpha[1]) > tao && abs(alpha[2]) > tao &&
-		   abs(beta[0])  > tao && abs(beta[1]) > tao)
+		abs(beta[0])  > tao && abs(beta[1]) > tao)
 	{
 		float a1 = alpha[1] * alpha[1] + beta[0] * beta[0];
 		float a2 = alpha[2] * alpha[2] + beta[1] * beta[1];
@@ -397,14 +479,18 @@ void GetSVD3D(in float3x3 A, out float3x3 U, out float3 D, out float3x3 V)
 		float d_sign = sign(d);
 		mu = d_sign * abs(mu);
 
+		//code not in the paper
+		//mu = a2 - mu;
+		//----------------
+
 		float3x3 G = G3_12(alpha[0] * alpha[0] - mu, gamma[0]);
-		B = B * G;
-		V = V * G;
+		B = mul(B, G);
+		V = mul(V, G);
 
 		Zerochasing(U, B, V);
 
 		alpha = float3(B[0][0], B[1][1], B[2][2]);
-		beta = float2(B[0][1], B[1][2]); 
+		beta = float2(B[0][1], B[1][2]);
 		gamma = float2(alpha[0] * beta[0], alpha[1] * beta[1]);
 	}
 

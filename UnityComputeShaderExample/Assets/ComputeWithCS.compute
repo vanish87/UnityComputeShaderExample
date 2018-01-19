@@ -23,28 +23,61 @@ RWStructuredBuffer<Output> _output_buffer;
 [numthreads(8, 8, 1)]
 void ComputeSVD3D(uint3 id : SV_DispatchThreadID)
 {
-	float3x3 A = (float3x3)_input_buffer[id.x].A;
-	float3x3 U;
-	float3	 D;
-	float3x3 V;
+	bool cal_2d = false;
 
-	GetSVD3D(A, U, D, V);
+	if (cal_2d)
+	{
+		//is working now
+		float2x2 A2 = (float2x2)_input_buffer[id.x].A;
+		float2x2 U2 = float2x2(0, 0, 0, 0);
+		float2	 D2 = float2(0, 0);
+		float2x2 V2 = float2x2(0, 0, 0, 0);
+		GetSVD2D(A2, U2, D2, V2);
 
-	float3x3 Vt = transpose(V);
+		float2x2 Vt = transpose(V2);
 
-	//_output_buffer[id.x].U  = U;
-	//_output_buffer[id.x].D  = D;
-	//_output_buffer[id.x].Vt = Vt;
+		_output_buffer[id.x].U[0] = float4(U2[0].xy, 0,0);
+		_output_buffer[id.x].U[1] = float4(U2[1].xy, 0,0);
+		_output_buffer[id.x].U[2] = float4(0, 0, 0, 0);
+		_output_buffer[id.x].U[3] = float4(0, 0, 0, 0);
 
-	_output_buffer[id.x].U[0] = float4(U[0].xyz, 0);
-	_output_buffer[id.x].U[1] = float4(U[1].xyz, 0);
-	_output_buffer[id.x].U[2] = float4(U[2].xyz, 0);
-	_output_buffer[id.x].U[3] = float4(0,0,0,0);
+		_output_buffer[id.x].D.xy = D2;
 
-	_output_buffer[id.x].D.xyz = D;
+		_output_buffer[id.x].Vt[0] = float4(Vt[0].xy, 0,0);
+		_output_buffer[id.x].Vt[1] = float4(Vt[1].xy, 0,0);
+		_output_buffer[id.x].Vt[2] = float4(0, 0, 0, 0);
+		_output_buffer[id.x].Vt[3] = float4(0, 0, 0, 0);
+	}
+	else
+	{
 
-	_output_buffer[id.x].Vt[0] = float4(Vt[0].xyz, 0);
-	_output_buffer[id.x].Vt[1] = float4(Vt[1].xyz, 0);
-	_output_buffer[id.x].Vt[2] = float4(Vt[2].xyz, 0);
-	_output_buffer[id.x].Vt[3] = float4(0, 0, 0, 0);
+		float3x3 A = (float3x3)_input_buffer[id.x].A;
+		float3x3 U;
+		float3	 D;
+		float3x3 V;
+
+		GetSVD3D(A, U, D, V);
+
+		float3x3 Vt = transpose(V);
+
+		//_output_buffer[id.x].U  = U;
+		//_output_buffer[id.x].D  = D;
+		//_output_buffer[id.x].Vt = Vt;
+
+		_output_buffer[id.x].U[0] = float4(U[0].xyz, 0);
+		_output_buffer[id.x].U[1] = float4(U[1].xyz, 0);
+		_output_buffer[id.x].U[2] = float4(U[2].xyz, 0);
+		_output_buffer[id.x].U[3] = float4(0, 0, 0, 0);
+
+		_output_buffer[id.x].D[0] = D[0];
+		_output_buffer[id.x].D[1] = D[1];
+		_output_buffer[id.x].D[2] = D[2];
+
+		_output_buffer[id.x].Vt[0] = float4(Vt[0].xyz, 0);
+		_output_buffer[id.x].Vt[1] = float4(Vt[1].xyz, 0);
+		_output_buffer[id.x].Vt[2] = float4(Vt[2].xyz, 0);
+		_output_buffer[id.x].Vt[3] = float4(0, 0, 0, 0);
+	}
+
+
 }
