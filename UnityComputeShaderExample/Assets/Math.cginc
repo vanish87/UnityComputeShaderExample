@@ -2,7 +2,7 @@
 #define MATH_INCLUDED
 
 
-#define EPSILON 1e-6f
+#define EPSILON 1.19209290e-007
 
 float2x2 G2(float c, float s)
 {
@@ -14,7 +14,7 @@ float2 GetGivensConventionalCS(float a, float b)
 	float d = a * a + b * b;
 	float c = 1;
 	float s = 0;
-	if (abs(d) > EPSILON)
+	if (abs(d) > 0)
 	{
 		float t = rsqrt(d);
 		c = a * t;
@@ -30,7 +30,7 @@ float2 GetGivensUnConventionalCS(float a, float b)
 	float d = a * a + b * b;
 	float c = 1;
 	float s = 0;
-	if (abs(d) > EPSILON)
+	if (abs(d) > 0)
 	{
 		float t = rsqrt(d);
 		c = a * t;
@@ -196,6 +196,51 @@ void GetSVD2D(in float2x2 A, out float2x2 U, out float2 D, out float2x2 V)
 	CHECK_ASSERT(Math::IsFloatEqual(A[1][1], AToVerify[1][1]));*/
 }
 
+float3x3 MyMul(float3x3 lhs, float3x3 rhs)
+{
+	float3x3 ret = (float3x3)0;
+	for (int i = 0; i < 3; ++i)
+	{
+		for (int j = 0; j < 3; ++j)
+		{
+			float sum = 0;
+			for (int k = 0; k < 3; ++k)
+			{
+				sum += lhs[i][k] * rhs[k][j];
+			}
+			ret[i][j] = sum;
+		}
+	}
+
+	return ret;
+}
+
+void CodeZerochasing(inout float3x3 U, inout float3x3 A, inout float3x3 V)
+{
+	float3x3 G = G3_12(A[0][0], A[1][0]);
+	A = mul(transpose(G), A);
+	U = mul(U, G);
+	//U = MyMul(U, G); same as mul
+	//checked
+		
+	float c = A[0][1];
+	float s = A[0][2];
+	if (abs(A[1][0]) > EPSILON)
+	{
+		c = A[0][0] * A[0][1] + A[1][0] * A[1][1];
+		s = A[0][0] * A[0][2] + A[1][0] * A[1][2];
+	}
+
+	G = G3_23(c, s);
+	A = mul(A, G);
+	V = mul(V, G);
+	//checked;
+	
+	G = G3_23(A[1][1], A[2][1]);
+	A = mul(transpose(G), A);
+	U = mul(U, G);
+	//checked
+}
 
 void Zerochasing(inout float3x3 U, inout float3x3 A, inout float3x3 V)
 {
@@ -219,7 +264,7 @@ void Bidiagonalize(inout float3x3 U, inout float3x3 A, inout float3x3 V)
 	U = mul(U, G);
 	//checked
 
-	Zerochasing(U, A, V);
+	CodeZerochasing(U, A, V);
 }
 
 float FrobeniusNorm(float3x3 input)
@@ -352,20 +397,20 @@ void SolveReducedTopLeft(inout float3x3 B, inout float3x3 U, inout float3 sigma,
 	//float2x2 v = G2(1, 0);
 
 	float2x2 top_left = float2x2(B[0][0], B[0][1], B[1][0], B[1][1]);
-
+	
 	float2x2 A2 = top_left;
 	float2x2 U2;
 	float2 D2;
 	float2x2 V2;
 	GetSVD2D(A2, U2, D2, V2);
 
-	float3x3 u3 = G3_12(U2[0][0], U2[0][1]);
-	float3x3 v3 = G3_12(V2[0][0], V2[0][1]);
-
+	float3x3 u3 = G3_12(U2[0][0], U2[0][1], false);
+	float3x3 v3 = G3_12(V2[0][0], V2[0][1], false);
+	
 	U = mul(U, u3);
 	V = mul(V, v3);
-	sigma = float3(D2, s3);
 
+	sigma = float3(D2, s3);
 }
 
 
@@ -383,8 +428,8 @@ void SolveReducedBotRight(inout float3x3 B, inout float3x3 U, inout float3 sigma
 	float2x2 V2;
 	GetSVD2D(A2, U2, D2, V2);
 
-	float3x3 u3 = G3_12(U2[0][0], U2[0][1]);
-	float3x3 v3 = G3_12(V2[0][0], V2[0][1]);
+	float3x3 u3 = G3_12(U2[0][0], U2[0][1], false);
+	float3x3 v3 = G3_12(V2[0][0], V2[0][1], false);
 
 	U = mul(U, u3);
 	V = mul(V, v3);
@@ -422,9 +467,12 @@ void PostProcess(float3x3 B, inout float3x3 U, inout float3x3 V, float3 alpha, f
 		G = G3_13(B[0][0], B[0][2]);
 		B = mul(B, G);
 		V = mul(V, G);
-		
+
+		//checked
 		SolveReducedTopLeft(B, U, sigma, V);
+		//checked
 		SortWithTopLeftSub(U, sigma, V);
+		//checked
 	}
 	else if (abs(alpha[0]) <= tao)
 	{
@@ -458,6 +506,8 @@ void GetSVD3D(in float3x3 A, out float3x3 U, out float3 D, out float3x3 V)
 	D = float3(0, 0, 0);
 
 	Bidiagonalize(U, B, V);
+	//chekced
+
 
 	float3 alpha = float3(B[0][0], B[1][1], B[2][2]);
 	float2 beta = float2(B[0][1], B[1][2]);
@@ -466,6 +516,7 @@ void GetSVD3D(in float3x3 A, out float3x3 U, out float3 D, out float3x3 V)
 	float tol = 128 * EPSILON;
 	float tao = tol * max(0.5 * FrobeniusNorm(B), 1.0);
 
+	
 	while (abs(alpha[0]) > tao && abs(alpha[1]) > tao && abs(alpha[2]) > tao &&
 		abs(beta[0])  > tao && abs(beta[1]) > tao)
 	{
@@ -473,6 +524,7 @@ void GetSVD3D(in float3x3 A, out float3x3 U, out float3 D, out float3x3 V)
 		float a2 = alpha[2] * alpha[2] + beta[1] * beta[1];
 		float b1 = gamma[1];
 
+		
 		float d = (a1 - a2) * 0.5;
 		float mu = (b1 * b1) / (abs(d) + sqrt(d*d + b1*b1));
 		//copy sign from d to mu
@@ -487,7 +539,7 @@ void GetSVD3D(in float3x3 A, out float3x3 U, out float3 D, out float3x3 V)
 		B = mul(B, G);
 		V = mul(V, G);
 
-		Zerochasing(U, B, V);
+		CodeZerochasing(U, B, V);
 
 		alpha = float3(B[0][0], B[1][1], B[2][2]);
 		beta = float2(B[0][1], B[1][2]);

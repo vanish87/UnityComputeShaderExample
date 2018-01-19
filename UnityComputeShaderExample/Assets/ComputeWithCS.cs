@@ -17,7 +17,7 @@ public class ComputeWithCS : MonoBehaviour {
 
     int kernal_id;
 
-    static private int number_of_buffer_ = 1;
+    static private int number_of_buffer_ = 100;
 
     struct Input
     {
@@ -47,11 +47,17 @@ public class ComputeWithCS : MonoBehaviour {
                 new Vector4(0, 0, 0, 0));
 
 
-            this.input_data_[i].A = new Matrix4x4(
-                new Vector4(1,4,7, 0),
-                new Vector4(2,5,8, 0),
-                new Vector4(3,6,9, 0),
-                new Vector4(0, 0, 0, 0));
+                         this.input_data_[i].A = new Matrix4x4(
+                             new Vector4(1,4,7, 0),
+                             new Vector4(2,5,8, 0),
+                             new Vector4(3,6,9, 0),
+                             new Vector4(0, 0, 0, 0));
+//                          this.input_data_[i].A = new Matrix4x4(
+//                              new Vector4(-3.72892f, 2.18524f, -5.94348f, 0),
+//                              new Vector4(-9.25222f, 9.61006f, -7.49722f, 0),
+//                              new Vector4(1.15526f, -5.82903f, 7.61113f, 0),
+//                              new Vector4(0, 0, 0, 0));
+            
         }
 
         input_buffer_.SetData(this.input_data_);
@@ -111,10 +117,10 @@ public class ComputeWithCS : MonoBehaviour {
                 new Vector4(0, 0, 0, 0)
             );
 
-            Debug.LogFormat("A is \n{0}", input[i].A);
-            Debug.LogFormat("U is \n{0}", output[i].U);
-            Debug.LogFormat("D is {0}", output[i].D.ToString("F4"));
-            Debug.LogFormat("Vt is \n{0}", output[i].Vt);
+//             Debug.LogFormat("A is \n{0}", input[i].A);
+//             Debug.LogFormat("U is \n{0}", output[i].U);
+//             Debug.LogFormat("D is {0}", output[i].D.ToString("F4"));
+//             Debug.LogFormat("Vt is \n{0}", output[i].Vt);
 
             /*output[i].Vt = new Matrix4x4(
                 new Vector4(1.56893f, 2.74563f, 0, 0),
@@ -122,9 +128,23 @@ public class ComputeWithCS : MonoBehaviour {
                 new Vector4(0, 0, 0, 0),
                 new Vector4(0, 0, 0, 0)
                 );*/
-             
- 
-            Debug.LogFormat("output is \n{0}", output[i].U * matirx_d * output[i].Vt);           
+
+            Matrix4x4 delta = output[i].U * matirx_d * output[i].Vt;
+            delta.SetRow(0, input[i].A.GetRow(0) - delta.GetRow(0));
+            delta.SetRow(1, input[i].A.GetRow(1) - delta.GetRow(1));
+            delta.SetRow(2, input[i].A.GetRow(2) - delta.GetRow(2));
+            delta.SetRow(3, input[i].A.GetRow(3) - delta.GetRow(3));
+
+            //if (Mathf.Abs(delta.m00) > 0.001f)
+            {
+                Debug.LogFormat("A is \n{4}\n" +
+                    "Retored is \n{5}\n" +
+                    "output is \n" +
+                    "U:\n{0}\n" +
+                    "D:\n{1}\n" +
+                    "Vt:\n{2}\n" +
+                    "Delta is \n{3}\n", output[i].U, matirx_d, output[i].Vt, delta, input[i].A, output[i].U * matirx_d * output[i].Vt);
+            }
 
             //Assert.IsTrue(input[i].A == output[i].U * matirx_d * output[i].Vt);
         }
