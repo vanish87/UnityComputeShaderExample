@@ -33,8 +33,8 @@ float2 GetGivensUnConventionalCS(float a, float b)
 	if (abs(d) > 0)
 	{
 		float t = rsqrt(d);
-		c = a * t;
-		s = b * t;
+		c = b * t;
+		s = a * t;
 	}
 
 	return float2(c, s);
@@ -81,7 +81,7 @@ float3x3 G3_13(float c, float s, bool use_conventional = true)
 
 void GetPolarDecomposition2D(in float2x2 A, out float2x2 R, out float2x2 S)
 {
-	R = float2x2(0, 0, 0, 0);
+	R = float2x2(1, 0, 0, 1);
 	S = float2x2(0, 0, 0, 0);
 
 	float x = A[0][0] + A[1][1];
@@ -140,11 +140,11 @@ void GetPolarDecomposition2D(in float2x2 A, out float2x2 R, out float2x2 S)
 
 void GetSVD2D(in float2x2 A, out float2x2 U, out float2 D, out float2x2 V)
 {
-	U = float2x2(0, 0, 0, 0);
+	U = float2x2(1, 0, 0, 1);
 	D = float2(0, 0);
-	V = float2x2(0, 0, 0, 0);
+	V = float2x2(1, 0, 0, 1);
 
-	float2x2 R = float2x2(0, 0, 0, 0);
+	float2x2 R = float2x2(1, 0, 0, 1);
 	float2x2 S = float2x2(0, 0, 0, 0);
 
 	GetPolarDecomposition2D(A, R, S);
@@ -418,8 +418,8 @@ void SolveReducedTopLeft(inout float3x3 B, inout float3x3 U, inout float3 sigma,
 	float2x2 V2 = float2x2(0, 0, 0, 0);
 	GetSVD2D(A2, U2, D2, V2);
 
-	float3x3 u3 = G3_12(U2[0][0], U2[0][1], false);
-	float3x3 v3 = G3_12(V2[0][0], V2[0][1], false);
+	float3x3 u3 = G3_12(U2[0][0], U2[0][1]);
+	float3x3 v3 = G3_12(V2[0][0], V2[0][1]);
 		
 	U = mul(U, u3);
 	V = mul(V, v3);
@@ -442,15 +442,15 @@ void SolveReducedBotRight(inout float3x3 B, inout float3x3 U, inout float3 sigma
 	float2x2 V2 = float2x2(0, 0, 0, 0);
 	GetSVD2D(A2, U2, D2, V2);
 
-	float3x3 u3 = G3_23(U2[0][0], U2[0][1], false);
-	float3x3 v3 = G3_23(V2[0][0], V2[0][1], false);
+	float3x3 u3 = G3_23(U2[0][0], U2[0][1]);
+	float3x3 v3 = G3_23(V2[0][0], V2[0][1]);
 		
 	U = mul(U, u3);
 	V = mul(V, v3);
 	sigma = float3(s1, D2);
 }
 
-void PostProcess(float3x3 B, inout float3x3 U, inout float3x3 V, float3 alpha, float2 beta, inout float3 sigma, float tao)
+void PostProcess(in float3x3 B, inout float3x3 U, inout float3x3 V, float3 alpha, float2 beta, inout float3 sigma, float tao)
 {
 	if (abs(beta[1]) <= tao)
 	{
@@ -468,11 +468,10 @@ void PostProcess(float3x3 B, inout float3x3 U, inout float3x3 V, float3 alpha, f
 	else if (abs(alpha[1]) <= tao)
 	{
 		//UnConventional G here
-		float3x3 G = G3_23(B[1][2], B[2][2], false);
+		float3x3 G = G3_23(-0.00204539, B[2][2], false);
 		B = mul(transpose(G), B);
 		U = mul(U, G);
-
-		U = B; return;
+		//checked
 
 		SolveReducedTopLeft(B, U, sigma, V);
 		SortWithTopLeftSub(U, sigma, V);
@@ -571,7 +570,6 @@ void GetSVD3D(in float3x3 A, out float3x3 U, out float3 D, out float3x3 V)
 		count++;
 
 	}
-
 
 // 	D = alpha;
 // 	U[1].xy = beta.xy;
