@@ -33,8 +33,8 @@ float2 GetGivensUnConventionalCS(float a, float b)
 	if (abs(d) > 0)
 	{
 		float t = rsqrt(d);
-		c = a * t;
-		s = b * t;
+		s = a * t;
+		c = b * t;
 	}
 
 	return float2(c, s);
@@ -67,6 +67,12 @@ float3x3 G3_23(float c, float s, bool use_conventional = true)
 		0, c, s,
 		0, -s, c);
 }
+float3x3 G3_23_Direct(float c, float s)
+{
+	return float3x3(1, 0, 0,
+		0, c, s,
+		0, -s, c);
+}
 
 
 float3x3 G3_13(float c, float s, bool use_conventional = true)
@@ -74,6 +80,13 @@ float3x3 G3_13(float c, float s, bool use_conventional = true)
 	float2 cs = use_conventional ? GetGivensConventionalCS(c, s) : GetGivensUnConventionalCS(c, s);
 	c = cs.x;
 	s = cs.y;
+	return float3x3(c, 0, s,
+		0, 1, 0,
+		-s, 0, c);
+}
+
+float3x3 G3_13_Direct(float c, float s)
+{
 	return float3x3(c, 0, s,
 		0, 1, 0,
 		-s, 0, c);
@@ -418,8 +431,8 @@ void SolveReducedTopLeft(inout float3x3 B, inout float3x3 U, inout float3 sigma,
 	float2x2 V2 = float2x2(0, 0, 0, 0);
 	GetSVD2D(A2, U2, D2, V2);
 
-	float3x3 u3 = G3_12(U2[0][0], U2[0][1], false);
-	float3x3 v3 = G3_12(V2[0][0], V2[0][1], false);
+	float3x3 u3 = G3_12_Direct(U2[0][0], U2[0][1]);
+	float3x3 v3 = G3_12_Direct(V2[0][0], V2[0][1]);
 		
 	U = mul(U, u3);
 	V = mul(V, v3);
@@ -442,8 +455,8 @@ void SolveReducedBotRight(inout float3x3 B, inout float3x3 U, inout float3 sigma
 	float2x2 V2 = float2x2(0, 0, 0, 0);
 	GetSVD2D(A2, U2, D2, V2);
 
-	float3x3 u3 = G3_23(U2[0][0], U2[0][1], false);
-	float3x3 v3 = G3_23(V2[0][0], V2[0][1], false);
+	float3x3 u3 = G3_23_Direct(U2[0][0], U2[0][1]);
+	float3x3 v3 = G3_23_Direct(V2[0][0], V2[0][1]);
 		
 	U = mul(U, u3);
 	V = mul(V, v3);
@@ -471,8 +484,6 @@ void PostProcess(float3x3 B, inout float3x3 U, inout float3x3 V, float3 alpha, f
 		float3x3 G = G3_23(B[1][2], B[2][2], false);
 		B = mul(transpose(G), B);
 		U = mul(U, G);
-
-		U = B; return;
 
 		SolveReducedTopLeft(B, U, sigma, V);
 		SortWithTopLeftSub(U, sigma, V);

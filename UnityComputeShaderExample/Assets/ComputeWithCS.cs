@@ -17,7 +17,8 @@ public class ComputeWithCS : MonoBehaviour {
 
     int kernal_id;
 
-    static private int number_of_buffer_ = 1000;
+    static private int number_of_buffer_ = 10000;
+    float range = 1000;
 
     int test_count_ = 0;
     int error_count_ = 0;
@@ -91,9 +92,9 @@ public class ComputeWithCS : MonoBehaviour {
         {
             //generator some random matrix
             this.input_data_[i].A = new Matrix4x4(
-                new Vector4(Random.Range(-10.0f, 10), Random.Range(-10.0f, 10), Random.Range(-10.0f, 10), 0),
-                new Vector4(Random.Range(-10.0f, 10), Random.Range(-10.0f, 10), Random.Range(-10.0f, 10), 0),
-                new Vector4(Random.Range(-10.0f, 10), Random.Range(-10.0f, 10), Random.Range(-10.0f, 10), 0),
+                new Vector4(Random.Range(-range, range), Random.Range(-range, range), Random.Range(-range, range), 0),
+                new Vector4(Random.Range(-range, range), Random.Range(-range, range), Random.Range(-range, range), 0),
+                new Vector4(Random.Range(-range, range), Random.Range(-range, range), Random.Range(-range, range), 0),
                 new Vector4(0, 0, 0, 0));
 
 
@@ -144,7 +145,7 @@ public class ComputeWithCS : MonoBehaviour {
 
             float time = Time.realtimeSinceStartup;
             Profiler.BeginSample("SVD3D");
-            cs.Dispatch(this.kernal_id, number_of_buffer_ / 8, number_of_buffer_ / 8, 1);
+            cs.Dispatch(this.kernal_id, number_of_buffer_/8, number_of_buffer_/8, 1);
             Profiler.EndSample();
 
             time_total_ += Time.realtimeSinceStartup - time;
@@ -204,7 +205,7 @@ public class ComputeWithCS : MonoBehaviour {
             { 
                 for (int k = 0; k < 3; ++k)
                 {
-                    if (Mathf.Abs(delta[j,k]) > 0.001)
+                    if (Mathf.Abs(delta[j,k]) > 0.0005 * range)
                     {
                         Debug.LogWarningFormat("A is \n{4}\n" +
                             "Retored is \n{5}\n" +
