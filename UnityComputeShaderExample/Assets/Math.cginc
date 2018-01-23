@@ -593,4 +593,67 @@ void GetSVD3D(in float3x3 A, out float3x3 U, out float3 D, out float3x3 V)
 	PostProcess(B, U, V, alpha, beta, D, tao);
 }
 
+
+
+inline float GetBSplineHelper(const float value)
+{
+	float val = abs(value);
+	float ret = 0;
+	if (val < 1)
+	{
+		ret = (0.5f * val * val * val) - (val * val) + (2 / 3.0f);
+	}
+	else
+		if (val < 2)
+		{
+			ret = (-1 / 6.0f) * (val * val * val) + (val *val) - (2 * val) + (4 / 3.0f);
+		}
+		else
+		{
+			return 0;
+		}
+
+	//if (ret < 1e-4f) 
+	//	return 0;
+
+	return ret;
+}
+
+inline float GetBSplineDerivativeHelper(float value)
+{
+	float val = abs(value);
+	if (val < 1)
+	{
+		return (1.5f * val * value) - 2 * value;
+	}
+	else
+		if (value < 2)
+		{
+			return (-0.5f) * (val * value) + 2 * value - 2 * value / val;
+		}
+		else
+		{
+			return 0;
+		}
+}
+
+float3x3 Math_OutProduct(float3 lhs, float3 rhs)
+{
+	return float3x3(lhs[0] * rhs[0], lhs[0] * rhs[1], lhs[0] * rhs[2],
+					lhs[1] * rhs[0], lhs[1] * rhs[1], lhs[1] * rhs[2],
+					lhs[2] * rhs[0], lhs[2] * rhs[1], lhs[2] * rhs[2]);
+}
+
+
+float3 Math_GetBSpline(float3 value)
+{
+	return float3(GetBSplineHelper(value.x), GetBSplineHelper(value.y), GetBSplineHelper(value.z));
+}
+
+
+float3 Math_GetBSplineDerivative(float3 value)
+{
+	return float3(GetBSplineDerivativeHelper(value.x), GetBSplineDerivativeHelper(value.y), GetBSplineDerivativeHelper(value.z));
+}
+
 #endif

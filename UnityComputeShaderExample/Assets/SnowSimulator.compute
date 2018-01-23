@@ -1,0 +1,118 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel ResterizeParticleMassToGrid
+#pragma kernel InitData
+#pragma kernel ComputeGrid
+
+#include "Assets/Common.cginc"
+#include "Assets/SnowCommon.cginc"
+#include "Assets/Math.cginc"
+
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWStructuredBuffer<SnowParticleStruct> _particle_buffer;
+RWStructuredBuffer<ParticleWeight> _particle_weight_buffer;
+RWStructuredBuffer<ParticleWeightAdvance> _particle_weight_ad_buffer;
+RWStructuredBuffer<Cell> _grid_buffer;
+
+
+float3 GetGridPositionFromParticlePosition(float3 particle_pos, int VOXEL_CELL_SIZE)
+{
+	float3 grid_pos = particle_pos.xyz / (float)VOXEL_CELL_SIZE;
+	grid_pos.x = particle_pos.x < 0 ? grid_pos.x - 1 : grid_pos.x;
+	grid_pos.y = particle_pos.y < 0 ? grid_pos.y - 1 : grid_pos.y;
+	grid_pos.z = particle_pos.z < 0 ? grid_pos.z - 1 : grid_pos.z;
+	return grid_pos;
+};
+
+int3 GetGridIndexFromParticlePosition(float3 particle_pos, int VOXEL_CELL_SIZE)
+{
+	int3 grid_index = (int3)0;
+	grid_index.x = (int)(particle_pos.x / VOXEL_CELL_SIZE);
+	grid_index.y = (int)(particle_pos.y / VOXEL_CELL_SIZE);
+	grid_index.z = (int)(particle_pos.z / VOXEL_CELL_SIZE);
+	grid_index.x = particle_pos.x < 0 ? grid_index.x - 1 : grid_index.x;
+	grid_index.y = particle_pos.y < 0 ? grid_index.y - 1 : grid_index.y;
+	grid_index.z = particle_pos.z < 0 ? grid_index.z - 1 : grid_index.z;
+	return grid_index;
+};
+
+Cell GetCellFromIndex(int3 index)
+{
+
+}
+
+
+void SetCellMassFromIndex(int3 index, float mass_add)
+{
+	int VOXEL_CELL_SIZE = 32;
+
+	int id = index.x * VOXEL_CELL_SIZE * VOXEL_CELL_SIZE + index.y * VOXEL_CELL_SIZE + index.z;
+	float mass = _grid_buffer[id].mass_;
+	mass += mass_add;
+	_grid_buffer[id].mass_ = mass;
+}
+
+[numthreads(8, 8, 1)]
+void ResterizeParticleMassToGrid(uint3 id : SV_DispatchThreadID)
+{
+	SnowParticleStruct p = _particle_buffer[id.x];
+	ParticleWeight w = _particle_weight_buffer[id.x];
+	ParticleWeightAdvance wad = _particle_weight_ad_buffer[id.x];
+
+	float3 Position = p.position_;
+	int3 GridIndex = GetGridIndexFromParticlePosition(Position, 32);
+	float3 ParticleGridPosition = GetGridPositionFromParticlePosition(Position, 32);
+
+	p.debug_grid_index_ = GridIndex;
+
+	//PRINT("Get Index " << GridIndex.x() << " " << GridIndex.y());
+	//PRINT("Get GridPos " << ParticleGridPosition.x() << " " << ParticleGridPosition.y());
+	Identify(p.D);
+
+	for (int i = -1; i < 3; ++i)
+	{
+		for (int j = -1; j < 3; ++j)
+		{
+			for (int k = -1; k < 3; ++k)
+			{
+				int3 CurrentIndex = int3(GridIndex.x + i, GridIndex.y + j, GridIndex.z + k);
+				float3 Nx = ParticleGridPosition - CurrentIndex;
+
+				//PRINT("Index "<< CurrentIndex.x()<<" "<< CurrentIndex.y()<<" Get Nx =  " << Nx.x() << " " << Nx.y());
+				wad.weight_[i + 1][j + 1][k + 1] = Math_GetBSpline(Nx);
+
+				w.weight_all_[i + 1][j + 1][k + 1] = wad.weight_[i + 1][j + 1][k + 1].x * wad.weight_[i + 1][j + 1][k + 1].y * wad.weight_[i + 1][j + 1][k + 1].z;
+
+				//PRINT_VAR(p.weight_[i + 1][j + 1]);// .z() = 1;
+				p.D = p.D + Math_OutProduct(Nx, Nx) * w.weight_all_[i + 1][j + 1][k + 1];
+
+				SetCellMassFromIndex(CurrentIndex, p.mass_ * w.weight_all_[i + 1][j + 1][k + 1]);
+				//CHECK_ASSERT(cell.mass_ > 0);
+			}
+		}
+	}
+
+	_particle_buffer[id.x] = p;
+	_particle_weight_buffer[id.x] = w;
+	_particle_weight_ad_buffer[id.x] = wad;
+}
+
+[numthreads(8, 8, 1)]
+void ComputeGrid(uint3 id : SV_DispatchThreadID)
+{
+
+}
+
+[numthreads(8, 8, 1)]
+void InitData(uint3 id : SV_DispatchThreadID)
+{
+	SnowParticleStruct p = _particle_buffer[id.x];
+	ParticleWeight w = _particle_weight_buffer[id.x];
+
+	Reset(p);
+	Reset(w);
+
+	_particle_buffer[id.x] = p;
+	_particle_weight_buffer[id.x] = w;
+}
