@@ -25,6 +25,7 @@ public class ComputeWithCS : MonoBehaviour {
 
     float time_total_ = 0;
     float time_count_ = 0;
+    float current_time_ = 0;
 
     struct Input
     {
@@ -148,7 +149,8 @@ public class ComputeWithCS : MonoBehaviour {
             cs.Dispatch(this.kernal_id, number_of_buffer_/8, number_of_buffer_/8, 1);
             Profiler.EndSample();
 
-            time_total_ += Time.realtimeSinceStartup - time;
+            current_time_ = Time.realtimeSinceStartup - time;
+            time_total_ += current_time_;
 
             output_buffer_.GetData(output_data_);
 
@@ -234,8 +236,8 @@ public class ComputeWithCS : MonoBehaviour {
     {
         //GUI.DrawTexture(new Rect(0, 0, 512 , 512), result_);
 
-        string s = System.String.Format("input tested: {0}\nerror ratio {1:P4}\ntime average: {2:F5} ms", 
-                                        test_count_, (error_count_ * 1.0f / test_count_), time_total_/time_count_ * 1000);
+        string s = System.String.Format("input tested: {0}\nerror ratio {1:P4}\ntime average: {2:F5} ms\nCurrent Time:{3:F5}", 
+                                        test_count_, (error_count_ * 1.0f / test_count_), time_total_/time_count_ * 1000, current_time_ * 1000f);
         GUI.TextArea(new Rect(100, 100, 300, 100), s);
     }
 }

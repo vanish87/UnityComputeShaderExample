@@ -5,6 +5,30 @@
 
 static const int number_of_samples_ = 4;
 
+const static float
+PARTICLE_DIAM = .0072f,		//Diameter of each particle; smaller = higher resolution
+FRAMERATE = 1 / 60.0f,			//Frames per second
+CFL = .04f,					//Adaptive timestep adjustment
+MAX_TIMESTEP = 5e-4f,		//Upper timestep limit
+FLIP_PERCENT = .95f,			//Weight to give FLIP update over PIC (.95)
+CRIT_COMPRESS = 1 - 2.5e-2f,	//Fracture threshold for compression (1-2.5e-2)
+CRIT_STRETCH = 1 + 7.5e-3f,	//Fracture threshold for stretching (1+7.5e-3)
+HARDENING = 5.0f,			//How much plastic deformation strengthens material (10)
+DENSITY = 100,				//Density of snow in kg/m^2 (400 for 3d)
+YOUNGS_MODULUS = 1.4e5f,		//Young's modulus (springiness) (1.4e5)
+POISSONS_RATIO = .2f,		//Poisson's ratio (transverse/axial strain ratio) (.2)
+IMPLICIT_RATIO = 0,			//Percentage that should be implicit vs explicit for velocity update
+MAX_IMPLICIT_ITERS = 30,	//Maximum iterations for the conjugate residual
+MAX_IMPLICIT_ERR = 1e4f,		//Maximum allowed error for conjugate residual
+MIN_IMPLICIT_ERR = 1e-4f,	//Minimum allowed error for conjugate residual
+STICKY = .9f,				//Collision stickiness (lower = stickier)
+GRAVITY = -9.8f;
+
+
+static const float MU = YOUNGS_MODULUS / (2 + 2 * POISSONS_RATIO);
+static const float LAMBDA = YOUNGS_MODULUS*POISSONS_RATIO / ((1 + POISSONS_RATIO)*(1 - 2 * POISSONS_RATIO));
+static const float EPSILON = HARDENING;
+
 struct SnowParticleStruct
 {
 	float3 position_;//physics location that differs from render element's
@@ -21,8 +45,6 @@ struct SnowParticleStruct
 
 	float3x3 velocity_gradient_;
 
-	int3 debug_grid_index_;
-
 	float3x3 D;
 
 	float3x3 Fe;
@@ -35,11 +57,11 @@ struct SnowParticleStruct
 	float3x3 v;
 	float3x3 d;
 
-	
-	
+
+	int3 debug_grid_index_;	
 };
 
-void Reset(SnowParticleStruct p)
+void Reset(inout SnowParticleStruct p)
 {
 	p.position_ = (float3)0;
 	p.velocity_ = (float3)0;
@@ -74,10 +96,6 @@ struct ParticleWeight
 {
 	float weight_all_[number_of_samples_][number_of_samples_][number_of_samples_];
 	float weight_gradient_all_[number_of_samples_][number_of_samples_][number_of_samples_];
-};
-
-struct ParticleWeightAdvance
-{
 	float3 weight_[number_of_samples_][number_of_samples_][number_of_samples_];
 	//Debug only
 	//float3 weight_dev_[number_of_samples_][number_of_samples_][number_of_samples_];
@@ -87,6 +105,7 @@ struct ParticleWeightAdvance
 void Reset(ParticleWeight w)
 {
 	w.weight_all_ = (float[number_of_samples_][number_of_samples_][number_of_samples_])0;
+	w.weight_gradient_all_ = (float[number_of_samples_][number_of_samples_][number_of_samples_])0;
 }
 
 struct Cell

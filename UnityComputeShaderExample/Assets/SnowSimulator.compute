@@ -12,7 +12,6 @@
 // with cs.SetTexture
 RWStructuredBuffer<SnowParticleStruct> _particle_buffer;
 RWStructuredBuffer<ParticleWeight> _particle_weight_buffer;
-RWStructuredBuffer<ParticleWeightAdvance> _particle_weight_ad_buffer;
 RWStructuredBuffer<Cell> _grid_buffer;
 
 
@@ -58,7 +57,6 @@ void ResterizeParticleMassToGrid(uint3 id : SV_DispatchThreadID)
 {
 	SnowParticleStruct p = _particle_buffer[id.x];
 	ParticleWeight w = _particle_weight_buffer[id.x];
-	ParticleWeightAdvance wad = _particle_weight_ad_buffer[id.x];
 
 	float3 Position = p.position_;
 	int3 GridIndex = GetGridIndexFromParticlePosition(Position, 32);
@@ -80,28 +78,36 @@ void ResterizeParticleMassToGrid(uint3 id : SV_DispatchThreadID)
 				float3 Nx = ParticleGridPosition - CurrentIndex;
 
 				//PRINT("Index "<< CurrentIndex.x()<<" "<< CurrentIndex.y()<<" Get Nx =  " << Nx.x() << " " << Nx.y());
-				wad.weight_[i + 1][j + 1][k + 1] = Math_GetBSpline(Nx);
+				w.weight_[i + 1][j + 1][k + 1] = Math_GetBSpline(Nx);
 
-				w.weight_all_[i + 1][j + 1][k + 1] = wad.weight_[i + 1][j + 1][k + 1].x * wad.weight_[i + 1][j + 1][k + 1].y * wad.weight_[i + 1][j + 1][k + 1].z;
+				w.weight_all_[i + 1][j + 1][k + 1] = w.weight_[i + 1][j + 1][k + 1].x * w.weight_[i + 1][j + 1][k + 1].y * w.weight_[i + 1][j + 1][k + 1].z;
 
+				w.weight_all_[i + 1][j + 1][k + 1] = 1234;
 				//PRINT_VAR(p.weight_[i + 1][j + 1]);// .z() = 1;
-				p.D = p.D + Math_OutProduct(Nx, Nx) * w.weight_all_[i + 1][j + 1][k + 1];
+				p.D += Math_OutProduct(Nx, Nx) * w.weight_all_[i + 1][j + 1][k + 1];
 
 				SetCellMassFromIndex(CurrentIndex, p.mass_ * w.weight_all_[i + 1][j + 1][k + 1]);
 				//CHECK_ASSERT(cell.mass_ > 0);
 			}
 		}
 	}
-
 	_particle_buffer[id.x] = p;
 	_particle_weight_buffer[id.x] = w;
-	_particle_weight_ad_buffer[id.x] = wad;
 }
 
 [numthreads(8, 8, 1)]
 void ComputeGrid(uint3 id : SV_DispatchThreadID)
 {
 
+}
+
+
+void SetupRandom(inout SnowParticleStruct p)
+{
+	float ParticleArea = PARTICLE_DIAM * PARTICLE_DIAM;
+	float ParticleMass = DENSITY * ParticleArea *0.03;
+
+	p.mass_ = ParticleMass;
 }
 
 [numthreads(8, 8, 1)]
@@ -112,6 +118,8 @@ void InitData(uint3 id : SV_DispatchThreadID)
 
 	Reset(p);
 	Reset(w);
+
+	SetupRandom(p);
 
 	_particle_buffer[id.x] = p;
 	_particle_weight_buffer[id.x] = w;

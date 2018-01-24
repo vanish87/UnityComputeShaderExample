@@ -1,0 +1,35 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel DefinedStruct
+#pragma enable_d3d11_debug_symbols
+
+#include "Assets/Common.cginc"
+#include "Assets/Math.cginc"
+
+struct Input
+{
+	float3x3 A;
+	float3x3 B;
+	float3x3 C;
+};
+
+struct Output
+{
+	float3x3 A;
+	float3x3 B;
+	float3x3 C;
+};
+
+RWStructuredBuffer<Input> _input_buffer;
+RWStructuredBuffer<Output> _output_buffer;
+
+[numthreads(8, 8, 1)]
+void DefinedStruct(uint3 id : SV_DispatchThreadID)
+{
+	float3x3  a = _input_buffer[id.x].A;
+	float3x3  b = _input_buffer[id.x].B;
+	float3x3  c = _input_buffer[id.x].C;
+
+	_output_buffer[id.x].A = b;
+	_output_buffer[id.x].B = c;
+	_output_buffer[id.x].C = a;
+}

@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -52,15 +53,26 @@ public class MPMGrid
 
             is_active_ = false;
         }
+
+        internal void PrintInfo()
+        {
+            Debug.LogFormat("mass_: {0}", mass_);
+            Debug.LogFormat("momentum_: {0}", momentum_);
+            Debug.LogFormat("velocity_: {0}", velocity_);
+            Debug.LogFormat("velocity_new_: {0}", velocity_new_);
+            Debug.LogFormat("force_: {0}", force_);
+            Debug.LogFormat("is_active_: {0}", is_active_);
+        }
     };
     struct Input
     {
         public Cell cell;
     }
 
+    //output is cell too, for debug
     struct Output
     {
-        float dummy;
+        public Cell cell;
     }
 
     // Use this for initialization
@@ -71,6 +83,14 @@ public class MPMGrid
         {
             //generator some random matrix
             this.input_data_[i].cell = new Cell();
+
+        }
+
+        this.output_data_ = new Output[NUMBER_OF_CELLS];
+        for (int i = 0; i < this.output_data_.Length; i++)
+        {
+            //generator some random matrix
+            this.output_data_[i].cell = new Cell();
 
         }
     }
@@ -84,6 +104,11 @@ public class MPMGrid
     public void CopyFormCPUtoGPU()
     {
         input_buffer_.SetData(input_data_);
+    }
+
+    public void CopyFromGPUToCPU()
+    {
+        input_buffer_.GetData(output_data_);
     }
 
     /*void RunCS ()
@@ -139,5 +164,16 @@ public class MPMGrid
         string s = System.String.Format("input tested: {0}\nerror ratio {1:P4}\ntime average: {2:F5} ms", 
                                         test_count_, (error_count_ * 1.0f / test_count_), time_total_/time_count_ * 1000);
         GUI.TextArea(new Rect(100, 100, 300, 100), s);
+    }
+
+    internal void PrintInfo()
+    {
+        output_data_[0].cell.PrintInfo();
+        return;
+
+        foreach(var c in output_data_)
+        {
+            c.cell.PrintInfo();
+        }
     }
 }
