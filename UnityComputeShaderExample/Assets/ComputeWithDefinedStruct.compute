@@ -10,6 +10,8 @@ struct Input
 	float3x3 A;
 	float3x3 B;
 	float3x3 C;
+
+	float D[64];
 };
 
 struct Output
@@ -17,6 +19,8 @@ struct Output
 	float3x3 A;
 	float3x3 B;
 	float3x3 C;
+
+	float D[64];
 };
 
 RWStructuredBuffer<Input> _input_buffer;
@@ -32,4 +36,12 @@ void DefinedStruct(uint3 id : SV_DispatchThreadID)
 	_output_buffer[id.x].A = b;
 	_output_buffer[id.x].B = c;
 	_output_buffer[id.x].C = a;
+
+
+	float d = _input_buffer[id.x].D[0];
+
+	_input_buffer[id.x].D[0] = d + 1;
+	_output_buffer[id.x].D[0] = d + 10;
+
+
 }

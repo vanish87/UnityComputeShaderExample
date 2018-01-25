@@ -159,13 +159,15 @@ public class SnowSimulator : MonoBehaviour {
     void InitGPUData()
     {
         int size = Marshal.SizeOf(typeof(MaterialPointParticleData));
+
+        int new_size = Marshal.SizeOf(typeof(Vector3)) * 4 + Marshal.SizeOf(typeof(float)) * 4 + Marshal.SizeOf(typeof(float3x3)) * 11;
         particle_input_buffer_ = new ComputeBuffer(NUMBER_OF_PARTICLES, size);
         int array_num = ParticleConstants.NUM_OF_SAMPLES * ParticleConstants.NUM_OF_SAMPLES * ParticleConstants.NUM_OF_SAMPLES;
         size =  Marshal.SizeOf(typeof(float)) * array_num;
         size += Marshal.SizeOf(typeof(float)) * array_num;
         size += Marshal.SizeOf(typeof(Vector3)) * array_num;
         size += Marshal.SizeOf(typeof(Vector3)) * array_num;
-        size = Marshal.SizeOf(particle_weight_data_[0]);
+        //size = Marshal.SizeOf(particle_weight_data_[0]);
 
         particle_weight_buffer_ = new ComputeBuffer(NUMBER_OF_PARTICLES, size);
 
