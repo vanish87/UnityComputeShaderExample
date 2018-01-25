@@ -7,6 +7,7 @@ using UnityEngine;
 public static class ParticleConstants
 {
     public const int NUM_OF_SAMPLES = 4;
+    public const int NUM_OF_ALL_SAMPLES = NUM_OF_SAMPLES * NUM_OF_SAMPLES * NUM_OF_SAMPLES;
 }
 [StructLayout(LayoutKind.Sequential, Pack = 0)]
 public struct float3x3
@@ -85,6 +86,7 @@ public class ParticleWeight
     }
 }*/
 
+/*
 public class ParticleWeightAdvance
 {
     public Vector3[,,] weight_ = new Vector3[ParticleConstants.NUM_OF_SAMPLES, ParticleConstants.NUM_OF_SAMPLES, ParticleConstants.NUM_OF_SAMPLES];
@@ -95,4 +97,4 @@ public class ParticleWeightAdvance
     {
         Debug.LogWarning("Init them to 0!!!!");
     }
-}
+}*/

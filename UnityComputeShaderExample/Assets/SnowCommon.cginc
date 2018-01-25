@@ -29,6 +29,8 @@ static const float MU = YOUNGS_MODULUS / (2 + 2 * POISSONS_RATIO);
 static const float LAMBDA = YOUNGS_MODULUS*POISSONS_RATIO / ((1 + POISSONS_RATIO)*(1 - 2 * POISSONS_RATIO));
 static const float EPSILON = HARDENING;
 
+static const int VOXEL_CELL_SIZE = 32;
+
 struct SnowParticleStruct
 {
 	float3 position_;//physics location that differs from render element's
@@ -102,10 +104,14 @@ struct ParticleWeight
 	float3 weight_gradient_[number_of_samples_][number_of_samples_][number_of_samples_];
 };
 
-void Reset(ParticleWeight w)
+void Reset(inout ParticleWeight w)
 {
 	w.weight_all_ = (float[number_of_samples_][number_of_samples_][number_of_samples_])0;
 	w.weight_gradient_all_ = (float[number_of_samples_][number_of_samples_][number_of_samples_])0;
+
+
+	w.weight_ = (float3[number_of_samples_][number_of_samples_][number_of_samples_])0;
+	w.weight_gradient_ = (float3[number_of_samples_][number_of_samples_][number_of_samples_])0;
 }
 
 struct Cell
@@ -119,6 +125,16 @@ struct Cell
 	bool is_active_;
 };
 
+void Reset(inout Cell cell)
+{
+	cell.mass_ = 0;
+	cell.momentum_ = (float3)0;
+	cell.velocity_ = (float3)0;
+	cell.velocity_new_ = (float3)0;
+	cell.force_ = (float3)0;
+
+	cell.is_active_ = false;
+}
 inline void Identify(inout float3x3 mat)
 {
 	mat = (float3x3)0;

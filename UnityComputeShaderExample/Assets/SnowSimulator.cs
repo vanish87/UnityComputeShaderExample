@@ -5,6 +5,33 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Assertions;
 
+
+public class SnowConstants
+{
+    public const float
+            PARTICLE_DIAM = .0072f,     //Diameter of each particle; smaller = higher resolution
+            FRAMERATE = 1 / 60.0f,          //Frames per second
+            CFL = .04f,                 //Adaptive timestep adjustment
+            MAX_TIMESTEP = 5e-4f,       //Upper timestep limit
+            FLIP_PERCENT = .95f,            //Weight to give FLIP update over PIC (.95)
+            CRIT_COMPRESS = 1 - 2.5e-2f,    //Fracture threshold for compression (1-2.5e-2)
+            CRIT_STRETCH = 1 + 7.5e-3f, //Fracture threshold for stretching (1+7.5e-3)
+            HARDENING = 5.0f,           //How much plastic deformation strengthens material (10)
+            DENSITY = 100,              //Density of snow in kg/m^2 (400 for 3d)
+            YOUNGS_MODULUS = 1.4e5f,        //Young's modulus (springiness) (1.4e5)
+            POISSONS_RATIO = .2f,       //Poisson's ratio (transverse/axial strain ratio) (.2)
+            IMPLICIT_RATIO = 0,         //Percentage that should be implicit vs explicit for velocity update
+            MAX_IMPLICIT_ITERS = 30,    //Maximum iterations for the conjugate residual
+            MAX_IMPLICIT_ERR = 1e4f,        //Maximum allowed error for conjugate residual
+            MIN_IMPLICIT_ERR = 1e-4f,   //Minimum allowed error for conjugate residual
+            STICKY = .9f,               //Collision stickiness (lower = stickier)
+            GRAVITY = -9.8f;
+
+
+    public const float MU = YOUNGS_MODULUS / (2 + 2 * POISSONS_RATIO);
+    public const float LAMBDA = YOUNGS_MODULUS * POISSONS_RATIO / ((1 + POISSONS_RATIO) * (1 - 2 * POISSONS_RATIO));
+    public const float EPSILON = HARDENING;
+}
 public class SnowSimulator : MonoBehaviour {
 
     int NUMBER_OF_PARTICLES = 100;
@@ -12,9 +39,11 @@ public class SnowSimulator : MonoBehaviour {
     [SerializeField] private ComputeShader cs;
     ComputeBuffer particle_input_buffer_;
     ComputeBuffer particle_weight_buffer_;
+    ComputeBuffer particle_debug_buffer_;
 
     MaterialPointParticleData[] particle_input_data_;
     ParticleWeight[] particle_weight_data_;
+    Matrix4x4[] particle_debug_data_;
 
     struct MaterialPointParticleData
     {
@@ -98,13 +127,56 @@ public class SnowSimulator : MonoBehaviour {
             //{ "SVD3D", -1},
             //{ "Grid", -1},
             { "InitData", new CS_Attribute(-1, false)},
-            { "ResterizeParticleMassToGrid", new CS_Attribute(-1, false)},
-            //{ "Particle_NONE", new CS_Attribute(-1, false) },
+            { "InitGridData", new CS_Attribute(-1, false)},
+            { "ResterizeParticleMassAndVelocityToGrid", new CS_Attribute(-1, false)},
+            { "UpdateGridVelocity", new CS_Attribute(-1, false)},
+            
+        //{ "Particle_NONE", new CS_Attribute(-1, false) },
             //{ "Particle_SOA", new CS_Attribute(-1, true)},
     };
     
     MPMGrid grid_ = new MPMGrid();
 
+    void RandomToFillCircle(float Raduis, Vector3 Position)
+    {
+        float ParticleArea = SnowConstants.PARTICLE_DIAM * SnowConstants.PARTICLE_DIAM;
+        float ParticleMass = SnowConstants.DENSITY * ParticleArea * 0.03f;
+
+        float CricleArea = Mathf.PI * Raduis * Raduis / 100000;
+        uint NumberOfParticle = (uint)(CricleArea / ParticleArea);
+
+        int Count = 0;
+
+        Vector3[] CriclePos =
+        { Position , new Vector3(80,50,0) , new Vector3(0,0,0)};
+
+
+        Vector3[] CricleSpeed =
+        { new Vector3(200,-150,0) , new Vector3(0,0,0) , new Vector3(0,0,0) };
+
+        for (uint i = 0; i < this.particle_input_data_.Length; ++i)
+        {
+            if (i < NumberOfParticle * (Count + 1))
+            {
+                MaterialPointParticleData it = this.particle_input_data_[i];
+                Vector3 rand = new Vector3(UnityEngine.Random.Range(-Raduis, Raduis), UnityEngine.Random.Range(-Raduis, Raduis), 0);
+                while (Vector3.Dot(rand,rand) > Raduis * Raduis)
+                {
+                    rand = new Vector3(UnityEngine.Random.Range(-Raduis, Raduis), UnityEngine.Random.Range(-Raduis, Raduis), 0);
+                }
+                it.position = new Vector3(rand.x + CriclePos[Count].x, rand.y + CriclePos[Count].y, rand.z + CriclePos[Count].z);
+                it.velocity = new Vector3(CricleSpeed[Count].x, CricleSpeed[Count].y, CricleSpeed[Count].z);
+
+                it.mass_ = ParticleMass;
+            }
+            else
+            {
+                Count++;
+            }
+
+
+        }
+    }
     void InitCPUData()
     {
         particle_input_data_ = new MaterialPointParticleData[NUMBER_OF_PARTICLES];
@@ -153,16 +225,20 @@ public class SnowSimulator : MonoBehaviour {
             particle_weight_data_[i].weight_gradient_ = new Vector3[ParticleConstants.NUM_OF_SAMPLES, ParticleConstants.NUM_OF_SAMPLES, ParticleConstants.NUM_OF_SAMPLES];
         }
 
+        particle_debug_data_ = new Matrix4x4[NUMBER_OF_PARTICLES];
+
         grid_.InitCPUData();
     }
 
     void InitGPUData()
     {
         int size = Marshal.SizeOf(typeof(MaterialPointParticleData));
-
         int new_size = Marshal.SizeOf(typeof(Vector3)) * 4 + Marshal.SizeOf(typeof(float)) * 4 + Marshal.SizeOf(typeof(float3x3)) * 11;
+        Assert.IsTrue(size == new_size);
+
         particle_input_buffer_ = new ComputeBuffer(NUMBER_OF_PARTICLES, size);
-        int array_num = ParticleConstants.NUM_OF_SAMPLES * ParticleConstants.NUM_OF_SAMPLES * ParticleConstants.NUM_OF_SAMPLES;
+
+        int array_num = ParticleConstants.NUM_OF_ALL_SAMPLES;
         size =  Marshal.SizeOf(typeof(float)) * array_num;
         size += Marshal.SizeOf(typeof(float)) * array_num;
         size += Marshal.SizeOf(typeof(Vector3)) * array_num;
@@ -170,6 +246,8 @@ public class SnowSimulator : MonoBehaviour {
         //size = Marshal.SizeOf(particle_weight_data_[0]);
 
         particle_weight_buffer_ = new ComputeBuffer(NUMBER_OF_PARTICLES, size);
+
+        particle_debug_buffer_ = new ComputeBuffer(NUMBER_OF_PARTICLES, Marshal.SizeOf(typeof(Matrix4x4)));
 
         foreach (var k in cs_kernal_name_index_map_)
         {
@@ -185,17 +263,16 @@ public class SnowSimulator : MonoBehaviour {
         Assert.IsNotNull(particle_input_buffer_);
 
         particle_input_buffer_.SetData(particle_input_data_);
-        particle_weight_buffer_.SetData(particle_weight_data_);
 
-        //grid_.CopyFormCPUtoGPU();
+        grid_.CopyFormCPUtoGPU();
     }
 
     void CopyFromGPUToCPU()
     {
         particle_input_buffer_.GetData(particle_input_data_);
-        particle_weight_buffer_.GetData(particle_weight_data_);
+        particle_debug_buffer_.GetData(particle_debug_data_);
 
-        //grid_.CopyFromGPUToCPU();
+        grid_.CopyFromGPUToCPU();
     }
 
     private void Start()
@@ -209,12 +286,17 @@ public class SnowSimulator : MonoBehaviour {
 
         this.InitCPUData();
         this.InitGPUData();
+
+        this.RandomToFillCircle(20, new Vector3(50, 0, 0));
         //Random step here
         this.CopyFormCPUtoGPU();
 
         this.InitData();
-        this.ResterizeParticleMassToGrid();
 
+        this.InitGridData();
+        this.ResterizeParticleMassAndVelocityToGrid();
+        this.UpdateGridVelocity();
+        
         this.CopyFromGPUToCPU();
         this.PrntInfo();
         yield return 0;
@@ -228,7 +310,9 @@ public class SnowSimulator : MonoBehaviour {
         //         }
 
         particle_input_data_[0].PrintInfo();
-        particle_weight_data_[0].PrintInfo();
+        //particle_weight_data_[0].PrintInfo();
+
+        Debug.LogFormat("{0}", particle_debug_data_[0]);
 
         grid_.PrintInfo();
     }
@@ -238,40 +322,69 @@ public class SnowSimulator : MonoBehaviour {
 		
 	}
 
+    void SetParticleBuffer(int kernel_id)
+    {
+        cs.SetBuffer(kernel_id, "_particle_buffer", particle_input_buffer_);
+        cs.SetBuffer(kernel_id, "_particle_weight_buffer", particle_weight_buffer_);
+        cs.SetBuffer(kernel_id, "_particle_debug_buffer", particle_debug_buffer_);
+    }
+
     void InitData()
     {
         string function_name = System.Reflection.MethodBase.GetCurrentMethod().Name;
         int id = cs_kernal_name_index_map_[function_name].kernal_id;
-        cs.SetBuffer(id, "_particle_buffer", particle_input_buffer_);
-        cs.SetBuffer(id, "_particle_weight_buffer", particle_weight_buffer_);
+        this.SetParticleBuffer(id);
         cs.Dispatch(id, 512 / 8, 8, 1);
     }
 
-    //execute one time in init step
-    void ResterizeParticleMassToGrid()
+    void InitGridData()
     {
         string function_name = System.Reflection.MethodBase.GetCurrentMethod().Name;
         int id = cs_kernal_name_index_map_[function_name].kernal_id;
-        cs.SetBuffer(id, "_particle_buffer", particle_input_buffer_);
-        cs.SetBuffer(id, "_particle_weight_buffer", particle_weight_buffer_);
+        this.grid_.SetGridBuffer(cs, id);
+        cs.Dispatch(id, 512 / 8, 8, 1);
+    }
+    
+    void ResterizeParticleMassAndVelocityToGrid()
+    {
+        string function_name = System.Reflection.MethodBase.GetCurrentMethod().Name;
+        int id = cs_kernal_name_index_map_[function_name].kernal_id;
+        this.SetParticleBuffer(id);
+        this.grid_.SetGridBuffer(cs, id);
         cs.Dispatch(id, 512/8, 8, 1);
+    }
+
+    void UpdateGridVelocity()
+    {
+        string function_name = System.Reflection.MethodBase.GetCurrentMethod().Name;
+        int id = cs_kernal_name_index_map_[function_name].kernal_id;
+        this.SetParticleBuffer(id);
+        this.grid_.SetGridBuffer(cs, id);
+        cs.Dispatch(id, 512 / 8, 8, 1);
     }
 
     //from The Affine Particle-In-Cell (APIC) method
     //http://www.seas.upenn.edu/~cffjiang/research/mpmcourse/mpmcourse.pdf
-//     void ResterizeParticleToGridWithAPIC();
-//     void ComputeParticleVelocityWithAPIC();
+    //     void ResterizeParticleToGridWithAPIC();
+    //     void ComputeParticleVelocityWithAPIC();
 
     void ResterizeParticleToGrid()
     {
+        //reset grid
+        this.InitGridData();
+
+        this.ResterizeParticleMassAndVelocityToGrid();
+
+        //Velocity part moved to ResterizeParticleMassAndVelocityToGrid
+
 
     }
-//     void ComputeParticleVolumesAndDensities();
-//     void ComputeGridForce();
-//     void ComputeGridVelocity();
-//     void GridCollision();
-//     void ComputeParticleDeformationGradient();
-//     void ComputeParticleVelocity();
-//     void ParticleCollision();
-//     void ComputeParticlePosition();
+    //     void ComputeParticleVolumesAndDensities();
+    //     void ComputeGridForce();
+    //     void ComputeGridVelocity();
+    //     void GridCollision();
+    //     void ComputeParticleDeformationGradient();
+    //     void ComputeParticleVelocity();
+    //     void ParticleCollision();
+    //     void ComputeParticlePosition();
 }

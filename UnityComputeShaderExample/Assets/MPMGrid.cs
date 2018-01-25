@@ -8,13 +8,12 @@ using UnityEngine.Assertions;
 using UnityEngine.Profiling;
 
 public class MPMGrid
-{    
+{
     //[SerializeField] private ComputeShader cs;
     ComputeBuffer input_buffer_;
-    Input[] input_data_;
 
-    ComputeBuffer output_buffer_;
-    Output[] output_data_;
+    ComputeBuffer debug_buffer_;
+    Cell[] output_data_;
 
     //int kernal_id_;
 
@@ -26,24 +25,19 @@ public class MPMGrid
 
     float time_total_ = 0;
     float time_count_ = 0;
-    
-    public class Cell
+        
+    public struct Cell
     {        
-		public Cell()
-        {
-            this.Reset();
-        }
+        public float mass_;
+        public Vector3 momentum_;
+        public Vector3 velocity_;
+        public Vector3 velocity_new_;
+        public Vector3 force_;
 
-        float mass_;
-        Vector3 momentum_ = new Vector3();
-        Vector3 velocity_ = new Vector3();
-        Vector3 velocity_new_ = new Vector3();
-        Vector3 force_ = new Vector3();
-
-        bool is_active_;
+        public bool is_active_;
 
         //void PrintInfo();
-        void Reset()
+        public void Reset()
         {
             mass_ = 0;
             momentum_.Set(0, 0, 0);
@@ -57,58 +51,58 @@ public class MPMGrid
         internal void PrintInfo()
         {
             Debug.LogFormat("mass_: {0}", mass_);
-            Debug.LogFormat("momentum_: {0}", momentum_);
-            Debug.LogFormat("velocity_: {0}", velocity_);
-            Debug.LogFormat("velocity_new_: {0}", velocity_new_);
-            Debug.LogFormat("force_: {0}", force_);
+            Debug.LogFormat("momentum_: {0}", momentum_.ToString("F5"));
+            Debug.LogFormat("velocity_: {0}", velocity_.ToString("F5"));
+            Debug.LogFormat("velocity_new_: {0}", velocity_new_.ToString("F5"));
+            Debug.LogFormat("force_: {0}", force_.ToString("F5"));
             Debug.LogFormat("is_active_: {0}", is_active_);
         }
     };
-    struct Input
-    {
-        public Cell cell;
-    }
-
-    //output is cell too, for debug
-    struct Output
-    {
-        public Cell cell;
-    }
-
+    
     // Use this for initialization
-    public void InitCPUData() {
-
-        this.input_data_= new Input[NUMBER_OF_CELLS];
-        for (int i = 0; i < this.input_data_.Length; i++)
-        {
-            //generator some random matrix
-            this.input_data_[i].cell = new Cell();
-
-        }
-
-        this.output_data_ = new Output[NUMBER_OF_CELLS];
+    public void InitCPUData()
+    {
+        this.output_data_ = new Cell[NUMBER_OF_CELLS];
         for (int i = 0; i < this.output_data_.Length; i++)
         {
             //generator some random matrix
-            this.output_data_[i].cell = new Cell();
+            this.output_data_[i] = new Cell();
 
+            this.output_data_[i].momentum_ = new Vector3();
+            this.output_data_[i].velocity_ = new Vector3();
+            this.output_data_[i].velocity_new_ = new Vector3();
+            this.output_data_[i].force_ = new Vector3();
+
+            this.output_data_[i].Reset();
         }
     }
 
     public void InitGPUData()
     {
+        int size = Marshal.SizeOf(typeof(Cell));
         //this.kernal_id_ = cs.FindKernel("ComputeGrid");
-        input_buffer_ = new ComputeBuffer(NUMBER_OF_CELLS, Marshal.SizeOf(typeof(Input)));
+        input_buffer_ = new ComputeBuffer(NUMBER_OF_CELLS, size);
+        debug_buffer_ = new ComputeBuffer(NUMBER_OF_CELLS, size);
     }
 
     public void CopyFormCPUtoGPU()
     {
-        input_buffer_.SetData(input_data_);
+
     }
 
     public void CopyFromGPUToCPU()
     {
         input_buffer_.GetData(output_data_);
+    }
+
+    public void SetGridBuffer(ComputeShader cs, int kernel_id)
+    {
+        Assert.IsNotNull(cs);
+        Assert.IsNotNull(input_buffer_);
+        Assert.IsNotNull(debug_buffer_);
+
+        cs.SetBuffer(kernel_id, "_grid_buffer", input_buffer_);
+        cs.SetBuffer(kernel_id, "_grid_debug_buffer", debug_buffer_);
     }
 
     /*void RunCS ()
@@ -117,7 +111,7 @@ public class MPMGrid
         if (cs != null)
         {
             cs.SetBuffer(this.kernal_id, "_input_buffer", input_buffer_);
-            cs.SetBuffer(this.kernal_id, "_output_buffer", output_buffer_);
+            cs.SetBuffer(this.kernal_id, "_output_buffer", debug_buffer_);
 
             float time = Time.realtimeSinceStartup;
             Profiler.BeginSample(this.GetType().Name);
@@ -126,7 +120,7 @@ public class MPMGrid
 
             time_total_ += Time.realtimeSinceStartup - time;
 
-            output_buffer_.GetData(output_data_);
+            debug_buffer_.GetData(output_data_);
 
             VerifyData(input_data_, output_data_);
         }
@@ -144,14 +138,7 @@ public class MPMGrid
         1 2
         3 4
      */
-
-    void VerifyData(Input[] input, Output[] output)
-    {
-        for (int i = 0; i < input.Length; ++i)
-        {
-           
-        }
-    }
+     
 
     private void OnRenderObject()
     {
@@ -168,12 +155,13 @@ public class MPMGrid
 
     internal void PrintInfo()
     {
-        output_data_[0].cell.PrintInfo();
-        return;
-
-        foreach(var c in output_data_)
+        foreach(var d in output_data_)
         {
-            c.cell.PrintInfo();
+            if(d.is_active_)
+            {
+                d.PrintInfo();
+            }
         }
+        return;
     }
 }
