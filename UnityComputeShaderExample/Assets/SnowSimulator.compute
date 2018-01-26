@@ -3,6 +3,7 @@
 #pragma kernel InitData
 #pragma kernel InitGridData
 #pragma kernel UpdateGridVelocity
+#pragma kernel ComputeParticleVolumesAndDensities
 
 #pragma kernel ComputeGrid
 
@@ -41,15 +42,22 @@ int3 GetGridIndexFromParticlePosition(float3 particle_pos, int cell_size)
 	return grid_index;
 };
 
+int GetCellIDFromIndex(int3 index)
+{
+	return index.x * VOXEL_GRID_SIZE * VOXEL_GRID_SIZE + index.y * VOXEL_GRID_SIZE + index.z;
+}
+
 Cell GetCellFromIndex(int3 index)
 {
-
+	int id = GetCellIDFromIndex(index);
+	return _grid_buffer[id];
 }
+
 
 
 void SetCellMassFromIndex(int3 index, float mass_add)
 {
-	int id = index.x * VOXEL_CELL_SIZE * VOXEL_CELL_SIZE + index.y * VOXEL_CELL_SIZE + index.z;
+	int id = GetCellIDFromIndex(index);
 	float mass = _grid_buffer[id].mass_;
 	mass += mass_add;
 	_grid_buffer[id].mass_ = mass;
@@ -57,7 +65,7 @@ void SetCellMassFromIndex(int3 index, float mass_add)
 
 void SetCellMomentumFromIndex(int3 index, float3 momentum_add)
 {
-	int id = index.x * VOXEL_CELL_SIZE * VOXEL_CELL_SIZE + index.y * VOXEL_CELL_SIZE + index.z;
+	int id = GetCellIDFromIndex(index);
 	float3 momentum = _grid_buffer[id].momentum_;
 	momentum += momentum_add;
 	_grid_buffer[id].momentum_ = momentum;
@@ -173,4 +181,43 @@ void UpdateGridVelocity(uint3 id : SV_DispatchThreadID)
 	}
 
 	_grid_buffer[id.x] = cell;
+}
+
+
+[numthreads(8, 8, 1)]
+void ComputeParticleVolumesAndDensities(uint3 id : SV_DispatchThreadID)
+{
+	SnowParticleStruct p = _particle_buffer[id.x];
+	ParticleWeight w = _particle_weight_buffer[id.x];
+
+	float3 Position = p.position_;
+	int3 GridIndex = GetGridIndexFromParticlePosition(Position, 32);
+	float3 ParticleGridPosition = GetGridPositionFromParticlePosition(Position, 32);
+
+	//TODO Check here add z value and cell size for 3D later
+	float CellArea = 1.0f / (VOXEL_CELL_SIZE * VOXEL_GRID_SIZE);
+	CellArea *= CellArea;
+
+
+	p.density_ = 0;
+	for (int i = -1; i < 3; ++i)
+	{
+		for (int j = -1; j < 3; ++j)
+		{
+			for (int k = -1; k < 3; ++k)
+			{
+				int3 CurrentIndex = int3(GridIndex.x + i, GridIndex.y + j, GridIndex.z + k);
+
+				int id = GetCellIDFromIndex(CurrentIndex);
+
+				p.density_ += (_grid_buffer[id].mass_ *  w.weight_all_[i + 1][j + 1][k + 1]);
+			}
+		}
+	}
+	p.density_ /= CellArea;
+
+	p.volume_ = p.mass_ / p.density_;
+
+	_particle_buffer[id.x] = p;
+	_particle_weight_buffer[id.x] = w;
 }

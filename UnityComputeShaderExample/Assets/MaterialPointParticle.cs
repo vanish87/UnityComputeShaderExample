@@ -16,6 +16,12 @@ public struct float3x3
     public float m10; public float m11; public float m12;
     public float m20; public float m21; public float m22;
 }
+public struct int3
+{
+    public int x;
+    public int y;
+    public int z;
+}
 
 /*
 [StructLayout(LayoutKind.Sequential, Pack = 0)]

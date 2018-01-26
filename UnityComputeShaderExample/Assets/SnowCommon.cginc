@@ -29,7 +29,8 @@ static const float MU = YOUNGS_MODULUS / (2 + 2 * POISSONS_RATIO);
 static const float LAMBDA = YOUNGS_MODULUS*POISSONS_RATIO / ((1 + POISSONS_RATIO)*(1 - 2 * POISSONS_RATIO));
 static const float EPSILON = HARDENING;
 
-static const int VOXEL_CELL_SIZE = 32;
+static const int VOXEL_CELL_SIZE = 10;
+static const int VOXEL_GRID_SIZE = 32;
 
 struct SnowParticleStruct
 {
@@ -47,6 +48,7 @@ struct SnowParticleStruct
 
 	float3x3 velocity_gradient_;
 
+	float3x3 B;
 	float3x3 D;
 
 	float3x3 Fe;
@@ -61,6 +63,33 @@ struct SnowParticleStruct
 
 
 	int3 debug_grid_index_;	
+};
+
+
+struct SmallParticleStruct
+{
+	float3 position;
+	float3 velocity;
+	float  mass;
+
+	float3x3 force_;
+
+	float3x3 velocity_gradient_;
+
+	float3x3 B;
+	float3x3 D;
+
+	float3x3 Fe;
+	float3x3 Fp;
+
+	float3x3 R;
+	float3x3 S;
+
+	float3x3 s;
+	float3x3 v;
+	float3x3 d;
+
+	int3 debug_grid_index_;
 };
 
 void Reset(inout SnowParticleStruct p)
