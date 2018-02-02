@@ -45,13 +45,17 @@ unsafe public class ComputeWithDefinedStruct : MonoBehaviour
         public float3x3 A;
         public float3x3 B;
         public float3x3 C;
-        
+        public Matrix4x4 matrix;//good
+
         public fixed float D[64];
+        //public float[] array; //error
+        //public float[,] 2darray; //error
+
     }
 
     // Use this for initialization
     void Start()
-    {
+    {        
         int size = Marshal.SizeOf(typeof(Input));// + Marshal.SizeOf(typeof(float)) * 4;
         Assert.IsTrue(size == Marshal.SizeOf(typeof(float3x3)) * 3 + Marshal.SizeOf(typeof(float)) * 64);
         input_buffer_ = new ComputeBuffer(number_of_buffer_, size);

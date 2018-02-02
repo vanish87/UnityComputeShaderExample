@@ -53,8 +53,8 @@ public class ComputeShaderScript : MonoBehaviour {
             //{ "SVD3D", -1},
             //{ "Grid", -1},
             { "Particle", new CS_Attribute(-1, false)},
-            //{ "Particle_NONE", new CS_Attribute(-1, false) },
-            { "Particle_SOA", new CS_Attribute(-1, true)},
+            { "Particle_NONE", new CS_Attribute(-1, false) },
+            //{ "Particle_SOA", new CS_Attribute(-1, true)},
     };
 
     Material mat_;
@@ -84,7 +84,7 @@ public class ComputeShaderScript : MonoBehaviour {
         var pData = new ParticleStruct[number_of_buffer_];
         for (int i = 0; i < pData.Length; i++)
         {
-            pData[i].pos = Random.insideUnitCircle;
+            pData[i].pos = Random.insideUnitSphere;
             pData[i].velocity = new Vector3();
         }
 

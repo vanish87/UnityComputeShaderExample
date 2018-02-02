@@ -20,7 +20,11 @@ struct Output
 	float3x3 B;
 	float3x3 C;
 
+	float4x4 Matrix;//good
+
 	float D[64];
+	//float array[10];// error
+	//float array[10[10];// error
 };
 
 RWStructuredBuffer<Input> _input_buffer;
